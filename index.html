@@ -386,11 +386,22 @@ function loadFromFirebase() {
   get(dataRef).then((snapshot) => {
     const data = snapshot.val();
     if (data) {
-      if (data.allData) allData = data.allData;
-      // Firebaseは空配列をnullで返すので安全に配列に戻す
-      todosArr = Array.isArray(data.todosArr) ? data.todosArr : (data.todosArr ? Object.values(data.todosArr) : []);
-      events = Array.isArray(data.events) ? data.events : (data.events ? Object.values(data.events) : []);
-      if (data.categories && data.categories.length > 0) categories = data.categories;
+      // allDataの復元（各日のtasksも空配列対策）
+      if (data.allData && !data.allData.__empty__) {
+        const restoredAllData = {};
+        for (const [dateKey, dayData] of Object.entries(data.allData)) {
+          if (!dayData || dateKey === '__empty__') continue;
+          restoredAllData[dateKey] = {
+            ...dayData,
+            tasks: fromFirebaseArray(dayData.tasks)
+          };
+        }
+        allData = restoredAllData;
+      }
+      todosArr = fromFirebaseArray(data.todosArr);
+      events = fromFirebaseArray(data.events);
+      const cats = fromFirebaseArray(data.categories);
+      if (cats.length > 0) categories = cats;
     }
     isLoading = false;
     setSyncStatus('ok');
@@ -411,21 +422,37 @@ function setSyncStatus(state) {
   else { el.className = 'sync-status sync-err'; el.textContent = '接続エラー'; }
 }
 
-function cleanForFirebase(obj) {
-  // Firebaseはundefinedやキーなし空オブジェクトが苦手なので再帰的にクリーン化
-  if (Array.isArray(obj)) {
-    const cleaned = obj.map(cleanForFirebase);
-    return cleaned.length === 0 ? null : cleaned;
+function toFirebaseArray(arr) {
+  // 空配列はFirebaseに保存できないので、空の場合はプレースホルダーを使う
+  if (!Array.isArray(arr) || arr.length === 0) return {'__empty__': true};
+  return arr;
+}
+
+function fromFirebaseArray(val) {
+  // プレースホルダーや null を空配列に戻す
+  if (!val) return [];
+  if (val.__empty__) return [];
+  if (Array.isArray(val)) return val;
+  // Firebaseがオブジェクトとして返した場合
+  return Object.values(val).filter(v => v !== true);
+}
+
+function buildPayload() {
+  // allDataのtasksも空配列対策
+  const safeAllData = {};
+  for (const [dateKey, dayData] of Object.entries(allData)) {
+    if (!dayData) continue;
+    safeAllData[dateKey] = {
+      ...dayData,
+      tasks: toFirebaseArray(dayData.tasks || [])
+    };
   }
-  if (obj !== null && typeof obj === 'object') {
-    const result = {};
-    for (const [k, v] of Object.entries(obj)) {
-      const cleaned = cleanForFirebase(v);
-      if (cleaned !== undefined) result[k] = cleaned;
-    }
-    return Object.keys(result).length === 0 ? null : result;
-  }
-  return obj === undefined ? null : obj;
+  return {
+    allData: Object.keys(safeAllData).length > 0 ? safeAllData : {'__empty__': true},
+    todosArr: toFirebaseArray(todosArr),
+    events: toFirebaseArray(events),
+    categories: toFirebaseArray(categories)
+  };
 }
 
 function scheduleSave() {
@@ -433,7 +460,7 @@ function scheduleSave() {
   setSyncStatus('saving');
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    const payload = cleanForFirebase({ allData, todosArr, events, categories });
+    const payload = buildPayload();
     set(ref(db, 'scheduler'), payload)
       .then(() => setSyncStatus('ok'))
       .catch((e) => { console.error('Firebase save error:', e); setSyncStatus('err'); });
