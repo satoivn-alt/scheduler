@@ -387,14 +387,16 @@ function loadFromFirebase() {
     const data = snapshot.val();
     if (data) {
       if (data.allData) allData = data.allData;
-      if (data.todosArr) todosArr = data.todosArr;
-      if (data.events) events = data.events;
-      if (data.categories) categories = data.categories;
+      // Firebaseは空配列をnullで返すので安全に配列に戻す
+      todosArr = Array.isArray(data.todosArr) ? data.todosArr : (data.todosArr ? Object.values(data.todosArr) : []);
+      events = Array.isArray(data.events) ? data.events : (data.events ? Object.values(data.events) : []);
+      if (data.categories && data.categories.length > 0) categories = data.categories;
     }
     isLoading = false;
     setSyncStatus('ok');
     render();
-  }).catch(() => {
+  }).catch((e) => {
+    console.error('Firebase load error:', e);
     setSyncStatus('err');
     isLoading = false;
     render();
@@ -409,14 +411,32 @@ function setSyncStatus(state) {
   else { el.className = 'sync-status sync-err'; el.textContent = '接続エラー'; }
 }
 
+function cleanForFirebase(obj) {
+  // Firebaseはundefinedやキーなし空オブジェクトが苦手なので再帰的にクリーン化
+  if (Array.isArray(obj)) {
+    const cleaned = obj.map(cleanForFirebase);
+    return cleaned.length === 0 ? null : cleaned;
+  }
+  if (obj !== null && typeof obj === 'object') {
+    const result = {};
+    for (const [k, v] of Object.entries(obj)) {
+      const cleaned = cleanForFirebase(v);
+      if (cleaned !== undefined) result[k] = cleaned;
+    }
+    return Object.keys(result).length === 0 ? null : result;
+  }
+  return obj === undefined ? null : obj;
+}
+
 function scheduleSave() {
   if (isLoading) return;
   setSyncStatus('saving');
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    set(ref(db, 'scheduler'), { allData, todosArr, events, categories })
+    const payload = cleanForFirebase({ allData, todosArr, events, categories });
+    set(ref(db, 'scheduler'), payload)
       .then(() => setSyncStatus('ok'))
-      .catch(() => setSyncStatus('err'));
+      .catch((e) => { console.error('Firebase save error:', e); setSyncStatus('err'); });
   }, 1000);
 }
 
