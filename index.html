@@ -126,10 +126,65 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.5;cursor:pointer}
 .wv-more{font-size:10px;color:#999;padding:1px 4px}
 .ev-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:0.5px solid #eee;font-size:13px}
 .ev-item:last-child{border:none}
+/* ===== タブ ===== */
+.tab-bar{display:flex;gap:0;border-bottom:2px solid #e0e0e0;margin-bottom:1.25rem}
+.tab-btn{padding:8px 22px;font-size:14px;font-weight:500;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;color:#888;margin-bottom:-2px;transition:color .15s,border-color .15s}
+.tab-btn.active{color:#3C3489;border-bottom-color:#7F77DD}
+.tab-btn:hover:not(.active){color:#555}
+/* ===== カルテ全体 ===== */
+#karteView{display:none}
+.karte-layout{display:grid;grid-template-columns:220px 1fr;gap:14px}
+@media(max-width:700px){.karte-layout{grid-template-columns:1fr}}
+/* 曜日タブ */
+.dow-tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.dow-tab{padding:5px 14px;border-radius:99px;font-size:13px;border:1px solid #ddd;background:#fff;cursor:pointer;color:#555}
+.dow-tab.active{background:#7F77DD;border-color:#7F77DD;color:#fff;font-weight:500}
+/* 生徒リスト */
+.student-list{display:flex;flex-direction:column;gap:4px}
+.student-card{padding:10px 12px;border-radius:10px;border:1px solid #e0e0e0;background:#fff;cursor:pointer;transition:border-color .15s}
+.student-card:hover{border-color:#AFA9EC}
+.student-card.active{border-color:#7F77DD;background:#EEEDFE}
+.student-name{font-size:14px;font-weight:500}
+.student-meta{font-size:11px;color:#888;margin-top:2px;display:flex;gap:6px;flex-wrap:wrap}
+.student-tag{font-size:10px;padding:1px 7px;border-radius:99px;white-space:nowrap}
+.tag-exam{background:#FAEEDA;color:#633806;border:0.5px solid #FAC775}
+.tag-activity{background:#E6F1FB;color:#0C447C;border:0.5px solid #85B7EB}
+/* カルテ詳細 */
+.karte-detail{display:flex;flex-direction:column;gap:12px}
+.karte-section{background:#fff;border:1px solid #ddd;border-radius:12px;padding:1.1rem 1.25rem}
+.karte-section-title{font-size:12px;font-weight:500;color:#666;margin-bottom:10px}
+/* 星評価 */
+.star-row{display:flex;gap:4px;align-items:center}
+.star{font-size:22px;cursor:pointer;color:#ddd;transition:color .1s;line-height:1}
+.star.on{color:#FAC775}
+.star:hover{color:#FAC775}
+/* 履歴 */
+.history-list{display:flex;flex-direction:column;gap:8px}
+.history-item{background:#f5f5f3;border:1px solid #eee;border-radius:8px;padding:10px 12px}
+.history-date{font-size:11px;color:#888;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.history-stars{color:#FAC775;font-size:13px}
+.history-body{font-size:12px;color:#444;line-height:1.6}
+.history-tag{font-size:10px;background:#eee;border-radius:4px;padding:1px 6px;color:#666}
+/* 折れ線グラフ */
+.score-chart{margin-top:6px}
+/* 生徒追加フォーム */
+.student-add-form{background:#f5f5f3;border:1px solid #ddd;border-radius:10px;padding:12px 14px;margin-top:10px}
+.kform-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+.kform-row:last-child{margin-bottom:0}
+/* レッスンTODOバッジ */
+.todo-source-badge{font-size:10px;padding:1px 6px;border-radius:99px;border:0.5px solid #AFA9EC;background:#EEEDFE;color:#3C3489;white-space:nowrap;margin-left:4px}
 </style>
 </head>
 <body>
 <div class="app">
+  <!-- タブナビ -->
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tabScheduler" onclick="switchTab('scheduler')">📅 スケジューラー</button>
+    <button class="tab-btn" id="tabKarte" onclick="switchTab('karte')">🎵 レッスンカルテ</button>
+  </div>
+
+  <!-- スケジューラーView -->
+  <div id="schedulerView">
   <div class="top-bar">
     <div class="date-nav">
       <button class="btn" onclick="changeDay(-1)">←</button>
@@ -329,12 +384,136 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.5;cursor:pointer}
       </div>
     </div>
   </div>
-</div>
+  </div><!-- /#schedulerView -->
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  <!-- カルテView -->
+  <div id="karteView">
+    <!-- 検索バー -->
+    <div style="background:#fff;border:1px solid #ddd;border-radius:12px;padding:14px 16px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:500;color:#444;margin-bottom:10px">🔍 生徒を検索・絞り込み</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input class="inp" type="text" id="karteSearch" placeholder="名前・メモなどキーワード検索..." style="flex:1;min-width:160px" oninput="runKarteSearch()">
+        <select class="inp" id="filterGrade" style="font-size:12px;padding:6px 8px" onchange="runKarteSearch()">
+          <option value="">学年: すべて</option>
+          <option>年少以下</option><option>年中</option><option>年長</option>
+          <option>小1</option><option>小2</option><option>小3</option><option>小4</option><option>小5</option><option>小6</option>
+          <option>中1</option><option>中2</option><option>中3</option>
+          <option>高1</option><option>高2</option><option>高3</option>
+          <option>大学生以上</option><option>大人レッスン</option>
+        </select>
+        <select class="inp" id="filterKentei" style="font-size:12px;padding:6px 8px" onchange="runKarteSearch()">
+          <option value="">検定級: すべて</option>
+          <option>クロッシュ</option><option>ノワー1</option><option>ノワー2</option><option>ノワー3</option>
+          <option>ノワー4</option><option>ノワー5</option><option>ノワー6</option>
+          <option>ブロンシュ1</option><option>ブロンシュ2</option><option>ブロンシュ3</option><option>ロンド</option>
+        </select>
+        <select class="inp" id="filterEvent" style="font-size:12px;padding:6px 8px" onchange="runKarteSearch()">
+          <option value="">イベント: すべて</option>
+          <option value="summer">夏の音楽合宿</option>
+          <option value="xmas">クリスマスコンサート</option>
+          <option value="spring">スプリングコンサート</option>
+        </select>
+        <input class="inp" type="number" id="filterEventYear" placeholder="年(例:2025)" style="width:90px;font-size:12px;padding:6px 8px" oninput="runKarteSearch()">
+        <button class="btn small" onclick="clearKarteSearch()">クリア</button>
+      </div>
+    </div>
+    <div class="dow-tabs" id="dowTabs"></div>
+    <div class="karte-layout">
+      <!-- 左：生徒リスト＋追加フォーム -->
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-size:13px;font-weight:500;color:#666" id="karteStudentListLabel">生徒一覧</div>
+          <button class="btn small" style="font-size:11px" onclick="toggleAddForm()">＋ 生徒を追加</button>
+        </div>
+        <div class="student-list" id="studentList"></div>
+        <!-- 生徒追加フォーム（折りたたみ） -->
+        <div class="student-add-form" id="studentAddForm" style="display:none">
+          <div style="font-size:12px;font-weight:500;color:#666;margin-bottom:10px">生徒を追加</div>
+          <div class="kform-row">
+            <span class="field-lbl">名前</span>
+            <input class="inp" type="text" id="sName" placeholder="名前..." style="flex:1">
+          </div>
+          <div class="kform-row">
+            <span class="field-lbl">学年</span>
+            <select class="inp" id="sGrade" style="font-size:13px;padding:6px 8px;flex:1"><option value="">選択...</option><option>年少以下</option><option>年中</option><option>年長</option><option>小1</option><option>小2</option><option>小3</option><option>小4</option><option>小5</option><option>小6</option><option>中1</option><option>中2</option><option>中3</option><option>高1</option><option>高2</option><option>高3</option><option>大学生以上</option><option>大人レッスン</option></select>
+          </div>
+          <div class="kform-row">
+            <span class="field-lbl">曜日</span>
+            <select class="inp" id="sDow" style="font-size:13px;padding:6px 8px;flex:1">
+              <option value="1">月曜</option><option value="2">火曜</option><option value="3">水曜</option>
+              <option value="4">木曜</option><option value="5">金曜</option>
+              <option value="6">土曜</option><option value="0">日曜</option>
+              <option value="7">その他</option>
+            </select>
+          </div>
+          <div class="kform-row">
+            <span class="field-lbl">開始年月日</span>
+            <input class="inp" type="date" id="sStartDate" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid #ccc;border-radius:8px">
+          </div>
+          <div class="kform-row">
+            <span class="field-lbl">検定級</span>
+            <select class="inp" id="sKentei" style="font-size:13px;padding:6px 8px;flex:1"><option value="">選択...</option><option>クロッシュ</option><option>ノワー1</option><option>ノワー2</option><option>ノワー3</option><option>ノワー4</option><option>ノワー5</option><option>ノワー6</option><option>ブロンシュ1</option><option>ブロンシュ2</option><option>ブロンシュ3</option><option>ロンド</option></select>
+          </div>
+          <div style="margin-bottom:8px">
+            <div class="field-lbl" style="margin-bottom:5px">コース併用</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px 12px">
+              <label style="font-size:12px;color:#555;display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" class="sCourseChk" value="年中長総合コース"> 年中長総合コース</label>
+<label style="font-size:12px;color:#555;display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" class="sCourseChk" value="総合コース"> 総合コース</label>
+<label style="font-size:12px;color:#555;display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" class="sCourseChk" value="高学年総合コース"> 高学年総合コース</label>
+<label style="font-size:12px;color:#555;display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" class="sCourseChk" value="ユースセッション"> ユースセッション</label>
+<label style="font-size:12px;color:#555;display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" class="sCourseChk" value="ジュニアオーケストラ"> ジュニアオーケストラ</label>
+<label style="font-size:12px;color:#555;display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" class="sCourseChk" value="アノネエレメンタリースクール"> アノネエレメンタリースクール</label>
+            </div>
+          </div>
+          <div class="kform-row" style="gap:12px;flex-wrap:wrap">
+            <label style="font-size:12px;color:#555;display:flex;align-items:center;gap:5px;cursor:pointer">
+              <input type="checkbox" id="sExam"> 受験予定あり
+            </label>
+            <label style="font-size:12px;color:#555;display:flex;align-items:center;gap:5px;cursor:pointer">
+              <input type="checkbox" id="sActivity" onchange="toggleActivityDetail()"> 習い事あり
+            </label>
+            <label style="font-size:12px;color:#555;display:flex;align-items:center;gap:5px;cursor:pointer">
+              <input type="checkbox" id="sSibling" onchange="toggleSiblingDetail()"> きょうだい在籍
+            </label>
+            <label style="font-size:12px;color:#555;display:flex;align-items:center;gap:5px;cursor:pointer">
+              <input type="checkbox" id="sMulti" onchange="toggleMultiDetail()"> 複数専攻
+            </label>
+          </div>
+          <div id="sActivityDetail" style="display:none;margin-top:6px">
+            <input class="inp" type="text" id="sActivityText" placeholder="習い事の内容..." style="width:100%">
+          </div>
+          <div id="sSiblingDetail" style="display:none;margin-top:6px">
+            <div style="font-size:11px;color:#888;margin-bottom:4px">きょうだい情報（最大3人）</div>
+            <div id="siblingRows"></div>
+            <button class="btn small" style="font-size:11px;margin-top:4px" onclick="addSiblingRow()">＋ きょうだいを追加</button>
+          </div>
+          <div id="sMultiDetail" style="display:none;margin-top:6px">
+            <div style="font-size:11px;color:#888;margin-bottom:4px">他専攻情報（最大3専攻）</div>
+            <div id="multiRows"></div>
+            <button class="btn small" style="font-size:11px;margin-top:4px" onclick="addMultiRow()">＋ 専攻を追加</button>
+          </div>
+          <div style="margin-top:8px">
+            <div class="field-lbl" style="margin-bottom:4px">生徒メモ（様子・好きなものなど）</div>
+            <textarea class="inp" id="sStudentMemo" placeholder="生徒の様子や好きなもの、気になることなど自由にメモ..." style="width:100%;min-height:60px;resize:vertical;line-height:1.5;font-size:12px"></textarea>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button class="btn" style="font-size:12px;background:#7F77DD;border-color:#7F77DD;color:#fff" onclick="addStudent()">追加</button>
+            <button class="btn small" onclick="toggleAddForm()">キャンセル</button>
+          </div>
+        </div>
+      </div>
+      <!-- 右：カルテ詳細 -->
+      <div class="karte-detail" id="karteDetail">
+        <div style="color:#aaa;font-size:14px;padding:40px 0;text-align:center">← 生徒を選択してください</div>
+      </div>
+    </div>
+  </div><!-- /#karteView -->
 
+</div><!-- /.app -->
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
 const firebaseConfig = {
   apiKey: "AIzaSyClT6v3E3-untpQSbXTkjPTD1slEJlUp1M",
   authDomain: "anone-task-manager.firebaseapp.com",
@@ -345,13 +524,14 @@ const firebaseConfig = {
   appId: "1:1005329381706:web:2ed089f53fe9b34df8e9b3"
 };
 
-const fbApp = initializeApp(firebaseConfig);
-const db = getDatabase(fbApp);
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
 const DAYS=['日','月','火','水','木','金','土'];
 let baseDate=new Date();baseDate.setHours(0,0,0,0);
 let offset=0,calOffset=0,wvOffset=0,selectedColor='#7F77DD';
 let allData={},todosArr=[],events=[];
+let students=[], karteRecords=[];
 let searchActiveCat=null;
 let saveTimer=null;
 let isLoading=true;
@@ -376,41 +556,43 @@ const DEFAULT_TASKS=[
 let undoStack=[];const MAX_UNDO=30;
 
 // Firebase: 初回のみデータ読み込み（リアルタイム同期はしない）
-const dataRef = ref(db, 'scheduler');
+const dataRef = db.ref('scheduler');
 window.reloadFromFirebase=()=>{
   if(!confirm('別端末のデータを取り込みます。未保存の変更は上書きされます。よろしいですか？'))return;
   isLoading=true;loadFromFirebase();
 };
-function loadFromFirebase() {
+
+function loadFromFirebase(){
   setSyncStatus('saving');
-  get(dataRef).then((snapshot) => {
-    const data = snapshot.val();
-    if (data) {
-      // allDataの復元（各日のtasksも空配列対策）
-      if (data.allData && !data.allData.__empty__) {
-        const restoredAllData = {};
-        for (const [dateKey, dayData] of Object.entries(data.allData)) {
-          if (!dayData || dateKey === '__empty__') continue;
-          restoredAllData[dateKey] = {
-            ...dayData,
-            tasks: fromFirebaseArray(dayData.tasks)
-          };
+  const dataRef=db.ref('scheduler');
+  dataRef.get().then((snapshot)=>{
+    const data=snapshot.val();
+    if(data){
+      if(data.allData&&!data.allData.__empty__){
+        const restored={};
+        for(const[k,v] of Object.entries(data.allData)){
+          if(!v||k==='__empty__')continue;
+          restored[k]={...v,tasks:fromFirebaseArray(v.tasks)};
         }
-        allData = restoredAllData;
+        allData=restored;
       }
-      todosArr = fromFirebaseArray(data.todosArr);
-      events = fromFirebaseArray(data.events);
-      const cats = fromFirebaseArray(data.categories);
-      if (cats.length > 0) categories = cats;
+      todosArr=fromFirebaseArray(data.todosArr);
+      events=fromFirebaseArray(data.events);
+      const cats=fromFirebaseArray(data.categories);
+      if(cats.length>0)categories=cats;
+      students=fromFirebaseArray(data.students);
+      karteRecords=fromFirebaseArray(data.karteRecords);
     }
-    isLoading = false;
+    isLoading=false;
     setSyncStatus('ok');
     render();
-  }).catch((e) => {
-    console.error('Firebase load error:', e);
+    if(currentTab==='karte')renderKarte();
+  }).catch(e=>{
+    console.error('Firebase load error:',e);
     setSyncStatus('err');
-    isLoading = false;
+    isLoading=false;
     render();
+    if(currentTab==='karte')renderKarte();
   });
 }
 loadFromFirebase();
@@ -451,7 +633,9 @@ function buildPayload() {
     allData: Object.keys(safeAllData).length > 0 ? safeAllData : {'__empty__': true},
     todosArr: toFirebaseArray(todosArr),
     events: toFirebaseArray(events),
-    categories: toFirebaseArray(categories)
+    categories: toFirebaseArray(categories),
+    students: toFirebaseArray(students),
+    karteRecords: toFirebaseArray(karteRecords)
   };
 }
 
@@ -461,7 +645,7 @@ function scheduleSave() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     const payload = buildPayload();
-    set(ref(db, 'scheduler'), payload)
+    db.ref('scheduler').set(payload)
       .then(() => setSyncStatus('ok'))
       .catch((e) => { console.error('Firebase save error:', e); setSyncStatus('err'); });
   }, 1000);
@@ -660,10 +844,42 @@ function render(){
 }
 
 window.addPrevToTimeline=(pi,timeId)=>{snapshot();let prevMissed=getMissedFromPrev();let t=prevMissed[pi];if(!t)return;let start=document.getElementById(timeId)?document.getElementById(timeId).value||t.start:t.start;getDayData().tasks.push({start,end:'',label:t.label,cat:t.cat,done:false,isBreak:false});let prev=new Date(baseDate);prev.setDate(prev.getDate()+offset-1);let k=getKey(prev);if(allData[k]){let idx=allData[k].tasks.findIndex(x=>!x.isBreak&&!x.done&&x.start===t.start&&x.label===t.label);if(idx>-1)allData[k].tasks.splice(idx,1);}render();};
-window.addTodoToTimeline=(realIdx,timeId)=>{snapshot();let t=todosArr[realIdx];if(!t)return;let start=document.getElementById(timeId)?document.getElementById(timeId).value||nowTimeStr():nowTimeStr();getDayData().tasks.push({start,end:'',label:t.label,cat:t.cat||'other',done:false,isBreak:false});todosArr.splice(realIdx,1);render();};
+window.addTodoToTimeline=(realIdx,timeId)=>{
+  snapshot();
+  let t=todosArr[realIdx];if(!t)return;
+  let start=document.getElementById(timeId)?document.getElementById(timeId).value||nowTimeStr():nowTimeStr();
+  // lessonTodoIdを引き継いでタスクに持たせる
+  const task={start,end:'',label:t.label,cat:t.cat||'other',done:false,isBreak:false};
+  if(t.lessonTodoId)task.lessonTodoId=t.lessonTodoId;
+  getDayData().tasks.push(task);
+  todosArr.splice(realIdx,1);
+  render();
+};
 window.handleDotEnd=(e,si,elId)=>{if((e.ctrlKey||e.metaKey)&&e.key==='.'){e.preventDefault();let val=nowTimeStr();document.getElementById(elId).value=val;updateEnd(si,val);}};
 window.updateEnd=(si,val)=>{snapshot();let{tasks}=getDayData();let sorted=[...tasks].sort((a,b)=>toMin(a.start)-toMin(b.start));let orig=tasks.find(t=>t.start===sorted[si].start&&t.label===sorted[si].label);if(orig)orig.end=val;render();};
-window.toggleTask=(si)=>{snapshot();let{tasks}=getDayData();let sorted=[...tasks].sort((a,b)=>toMin(a.start)-toMin(b.start));let orig=tasks.find(t=>t.start===sorted[si].start&&t.label===sorted[si].label);if(orig&&!orig.isBreak)orig.done=!orig.done;render();};
+window.toggleTask=(si)=>{
+  snapshot();
+  let{tasks}=getDayData();
+  let sorted=[...tasks].sort((a,b)=>toMin(a.start)-toMin(b.start));
+  let orig=tasks.find(t=>t.start===sorted[si].start&&t.label===sorted[si].label);
+  if(orig&&!orig.isBreak){
+    orig.done=!orig.done;
+    // レッスンTODOとの連携：タイムラインのタスクにlessonTodoIdがあれば同期
+    if(orig.lessonTodoId){
+      karteRecords.forEach(rec=>{
+        if(!rec.lessonTodos)return;
+        const lt=rec.lessonTodos.find(t=>t.id===orig.lessonTodoId);
+        if(lt){lt.done=orig.done;if(orig.done)lt.doneDate=new Date().toISOString().slice(0,10);}
+      });
+    }
+    // スケジューラーTODO側のlessonTodoIdも同期
+    if(orig.schedulerTodoIdx!==undefined){
+      const st=todosArr[orig.schedulerTodoIdx];
+      if(st)st.done=orig.done;
+    }
+  }
+  render();
+};
 window.removeTask=(e,si)=>{e.stopPropagation();snapshot();let{tasks}=getDayData();let sorted=[...tasks].sort((a,b)=>toMin(a.start)-toMin(b.start));let idx=tasks.findIndex(t=>t.start===sorted[si].start&&t.label===sorted[si].label);if(idx>-1)tasks.splice(idx,1);render();};
 window.addTask=()=>{let start=document.getElementById('newStart').value,end=document.getElementById('newEnd').value,label=document.getElementById('newTask').value.trim(),cat=document.getElementById('newCat').value;if(!label)return;snapshot();getDayData().tasks.push({start,end,label,cat,done:false,isBreak:false});document.getElementById('newTask').value='';render();};
 window.addBreak=()=>{let start=document.getElementById('brkStart').value,end=document.getElementById('brkEnd').value;if(!start)return;snapshot();getDayData().tasks.push({start,end,label:'休憩',cat:'other',done:false,isBreak:true,isLesson:false});render();};
@@ -691,6 +907,7 @@ function renderTodos(){
   });
   list.innerHTML='';let hdr=document.createElement('div');hdr.className='todo-hdr';hdr.innerHTML='<span>内容</span><span>カテゴリ</span><span>依頼者</span><span>期限</span><span>予想時間</span><span></span>';list.appendChild(hdr);
   sorted.forEach((t)=>{let i=t._orig;let row=document.createElement('div');row.className='todo-row';let today=getKey(new Date());let isOver=t.deadline&&t.deadline<today&&!t.done;row.style.cssText=t.done?'opacity:.45;text-decoration:line-through':'';let catObj=getCatObj(t.cat||'other');let bg=PALETTE_BG[catObj.color]||'#F1EFE8';row.innerHTML=`<span style="cursor:pointer" onclick="toggleTodo(${i})">${t.label}</span><span><span style="font-size:11px;padding:2px 8px;border-radius:99px;background:${bg};color:${catObj.color};border:0.5px solid ${catObj.color};white-space:nowrap">${catObj.label}</span></span><span style="color:#666">${t.requester||'—'}</span><span style="color:${isOver?'#E24B4A':'#666'};font-weight:${isOver?500:400}">${t.deadline?'〜'+t.deadline:'—'}</span><span style="color:#666">${t.estimate||'—'}</span><button onclick="removeTodo(${i})" style="background:none;border:none;cursor:pointer;color:#999;font-size:15px;padding:0">×</button>`;list.appendChild(row);});
+  setTimeout(()=>{if(typeof patchTodoListWithKarteBadge==='function')patchTodoListWithKarteBadge();},0);
 }
 window.addTodo=()=>{let label=document.getElementById('todoLabel').value.trim();if(!label)return;snapshot();todosArr.push({label,cat:document.getElementById('todoCat').value,requester:document.getElementById('todoRequester').value.trim(),deadline:document.getElementById('todoDeadline').value,estimate:document.getElementById('todoEstimate').value.trim(),done:false});['todoLabel','todoRequester','todoDeadline','todoEstimate'].forEach(id=>document.getElementById(id).value='');renderTodos();render();};
 window.toggleTodo=(i)=>{snapshot();todosArr[i].done=!todosArr[i].done;renderTodos();render();};
@@ -777,7 +994,613 @@ window.downloadDayCSV=()=>{dl([MONTH_HDR,buildMonthRow(getKey(getDate()))],'sche
 window.changeDay=(n)=>{offset+=n;calOffset=0;render();};
 window.handleDot=handleDot;
 
+// ===== 定数定義 =====
+const GRADE_LIST=['年少以下','年中','年長','小1','小2','小3','小4','小5','小6','中1','中2','中3','高1','高2','高3','大学生以上','大人レッスン'];
+const KENTEI_LIST=['クロッシュ','ノワー1','ノワー2','ノワー3','ノワー4','ノワー5','ノワー6','ブロンシュ1','ブロンシュ2','ブロンシュ3','ロンド'];
+const COURSE_LIST=['年中長総合コース','総合コース','高学年総合コース','ユースセッション','ジュニアオーケストラ','アノネエレメンタリースクール'];
+const GRADE_OPT='<option value="">選択...</option>'+GRADE_LIST.map(g=>`<option>${g}</option>`).join('');
+const KENTEI_OPT='<option value="">選択...</option>'+KENTEI_LIST.map(k=>`<option>${k}</option>`).join('');
+const EVENT_TREE=[
+  {id:'summer',label:'夏の音楽合宿',children:['わくわくミュージックランド','in東京','信州A','信州B','マスタークラス']},
+  {id:'xmas',label:'クリスマスコンサート',children:['ノエル','ポルキリ','ワールド','オケ参加']},
+  {id:'spring',label:'スプリングコンサート',children:[]},
+  {id:'other',label:'その他',children:[],custom:true}
+];
+// イベントデータ構造: s.events = { '2025': { summer_cat: true, summer_わくわくミュージックランド: true, ... }, '2026': {...} }
+function getCurrentYear(){ return new Date().getFullYear(); }
+
+// ===== タブ切り替え =====
+let currentTab='scheduler';
+window.switchTab=(tab)=>{
+  currentTab=tab;
+  document.getElementById('schedulerView').style.display=tab==='scheduler'?'block':'none';
+  document.getElementById('karteView').style.display=tab==='karte'?'block':'none';
+  document.getElementById('tabScheduler').classList.toggle('active',tab==='scheduler');
+  document.getElementById('tabKarte').classList.toggle('active',tab==='karte');
+  if(tab==='karte'){try{renderKarte();}catch(e){console.error('renderKarte error:',e);}}
+};
+
+let karteDow=1;
+let karteSelectedStudentId=null;
+let karteSearchQuery='';
+let karteFilterGrade='';
+let karteFilterScore='';
+let karteUndoStack=[];
+
+// ===== カルテ Undo =====
+function karteSnapshot(){
+  const s=JSON.stringify({students,karteRecords});
+  if(karteUndoStack.length&&karteUndoStack[karteUndoStack.length-1]===s)return;
+  karteUndoStack.push(s);
+  if(karteUndoStack.length>20)karteUndoStack.shift();
+  scheduleSave();
+}
+function karteUndo(){
+  if(karteUndoStack.length<2)return;
+  karteUndoStack.pop();
+  const s=JSON.parse(karteUndoStack[karteUndoStack.length-1]);
+  students=s.students;karteRecords=s.karteRecords;
+  scheduleSave();renderKarte();
+  if(karteSelectedStudentId)renderKarteDetail(karteSelectedStudentId);
+}
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='z'&&currentTab==='karte'){
+    const tag=document.activeElement.tagName.toLowerCase();
+    if(tag==='textarea'||tag==='input')return;
+    e.preventDefault();karteUndo();
+  }
+});
+
+// ===== 検索・絞り込み =====
+let karteFilterEvent='';
+let karteFilterKentei='';
+let karteFilterEventYear='';
+window.runKarteSearch=()=>{
+  karteSearchQuery=(document.getElementById('karteSearch')||{}).value||'';
+  karteFilterGrade=(document.getElementById('filterGrade')||{}).value||'';
+  karteFilterKentei=(document.getElementById('filterKentei')||{}).value||'';
+  karteFilterEvent=(document.getElementById('filterEvent')||{}).value||'';
+  karteFilterEventYear=(document.getElementById('filterEventYear')||{}).value||'';
+  renderKarte();
+};
+window.clearKarteSearch=()=>{
+  ['karteSearch','filterGrade','filterKentei','filterEvent','filterEventYear'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  karteSearchQuery='';karteFilterGrade='';karteFilterKentei='';karteFilterEvent='';karteFilterEventYear='';
+  renderKarte();
+};
+function matchStudent(s){
+  if(karteFilterGrade&&s.grade!==karteFilterGrade)return false;
+  if(karteFilterKentei&&s.kentei!==karteFilterKentei)return false;
+  if(karteFilterEvent){
+    const evData=s.events||{};
+    let found=false;
+    const targetYear=karteFilterEventYear||null;
+    const yearsToCheck=targetYear?[targetYear]:Object.keys(evData);
+    yearsToCheck.forEach(year=>{
+      if(evData[year]&&evData[year][karteFilterEvent+'_cat'])found=true;
+    });
+    if(!found)return false;
+  }
+  if(karteSearchQuery){
+    const q=karteSearchQuery.toLowerCase();
+    // 通常フィールド検索
+    const searchText=[s.name,s.grade,s.activityText||'',s.kentei||'',(s.courses||[]).join(' '),(s.siblings||[]).map(x=>x.name).join(' ')].join(' ').toLowerCase();
+    const recText=karteRecords.filter(r=>r.studentId===s.id).map(r=>(r.mission||'')+(r.memo||'')).join(' ').toLowerCase();
+    // イベント検索: "2025 夏の音楽合宿" "2025 信州A" など
+    let eventText='';
+    const eventsData=s.events||{};
+    Object.entries(eventsData).forEach(([year,yearData])=>{
+      if(typeof yearData!=='object')return;
+      Object.entries(yearData).forEach(([key,val])=>{
+        if(val===true){
+          // key例: summer_cat, summer_わくわくミュージックランド
+          const cat=EVENT_TREE.find(c=>key.startsWith(c.id));
+          if(cat){
+            const child=key.slice(cat.id.length+1);
+            const label=child==='cat'?cat.label:child;
+            eventText+=year+' '+label+' '+cat.label+' ';
+          }
+        }
+        if(Array.isArray(val))eventText+=year+' '+val.join(' ')+' ';
+      });
+    });
+    if(!searchText.includes(q)&&!recText.includes(q)&&!eventText.toLowerCase().includes(q))return false;
+  }
+  return true;
+}
+
+// ===== 生徒追加フォーム補助 =====
+window.toggleAddForm=()=>{const f=document.getElementById('studentAddForm');f.style.display=f.style.display==='none'?'block':'none';};
+window.toggleActivityDetail=()=>{document.getElementById('sActivityDetail').style.display=document.getElementById('sActivity').checked?'block':'none';};
+window.toggleSiblingDetail=()=>{const el=document.getElementById('sSiblingDetail');el.style.display=document.getElementById('sSibling').checked?'block':'none';if(document.getElementById('sSibling').checked&&document.getElementById('siblingRows').children.length===0)addSiblingRow();};
+window.toggleMultiDetail=()=>{const el=document.getElementById('sMultiDetail');el.style.display=document.getElementById('sMulti').checked?'block':'none';if(document.getElementById('sMulti').checked&&document.getElementById('multiRows').children.length===0)addMultiRow();};
+window.addSiblingRow=()=>{const c=document.getElementById('siblingRows');if(!c||c.children.length>=3)return;const i=c.children.length;const d=document.createElement('div');d.style.cssText='display:flex;gap:4px;margin-bottom:4px;flex-wrap:wrap';d.innerHTML=`<input class="inp" type="text" placeholder="名前" id="sib${i}name" style="width:150px;font-size:12px;padding:5px 7px"><input class="inp" type="text" placeholder="楽器" id="sib${i}inst" style="width:80px;font-size:12px;padding:5px 7px"><input class="inp" type="text" placeholder="担当講師" id="sib${i}teacher" style="width:80px;font-size:12px;padding:5px 7px">`;c.appendChild(d);};
+window.addMultiRow=()=>{const c=document.getElementById('multiRows');if(!c||c.children.length>=3)return;const i=c.children.length;const d=document.createElement('div');d.style.cssText='display:flex;gap:4px;margin-bottom:4px;flex-wrap:wrap';d.innerHTML=`<input class="inp" type="text" placeholder="楽器" id="mul${i}inst" style="width:80px;font-size:12px;padding:5px 7px"><input class="inp" type="text" placeholder="担当講師" id="mul${i}teacher" style="width:80px;font-size:12px;padding:5px 7px">`;c.appendChild(d);};
+
+// ===== 生徒CRUD =====
+window.addStudent=()=>{
+  const name=document.getElementById('sName').value.trim();if(!name){alert('名前を入力してください');return;}
+  const courses=[...document.querySelectorAll('.sCourseChk:checked')].map(el=>el.value);
+  const siblings=[];for(let i=0;i<3;i++){const n=document.getElementById('sib'+i+'name');if(n&&n.value.trim())siblings.push({name:n.value.trim(),instrument:(document.getElementById('sib'+i+'inst')||{}).value||'',teacher:(document.getElementById('sib'+i+'teacher')||{}).value||''});}
+  const multi=[];for(let i=0;i<3;i++){const n=document.getElementById('mul'+i+'inst');if(n&&n.value.trim())multi.push({instrument:n.value.trim(),teacher:(document.getElementById('mul'+i+'teacher')||{}).value||''});}
+  const s={id:'st_'+Date.now(),name,grade:document.getElementById('sGrade').value,dow:Number(document.getElementById('sDow').value),startDate:document.getElementById('sStartDate').value||'',kentei:document.getElementById('sKentei').value||'',courses,exam:document.getElementById('sExam').checked,activity:document.getElementById('sActivity').checked,activityText:document.getElementById('sActivityText').value.trim(),siblings,multiInstruments:multi,isRetired:false,retiredDate:'',isOnLeave:false,leaveStart:'',leaveEnd:'',exams:[],concerts:[],events:{},studentMemo:document.getElementById('sStudentMemo')?document.getElementById('sStudentMemo').value.trim():''};
+  karteSnapshot();students.push(s);
+  ['sName','sActivityText'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['sExam','sActivity','sSibling','sMulti'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
+  document.getElementById('sGrade').value='';document.getElementById('sKentei').value='';
+  document.querySelectorAll('.sCourseChk').forEach(el=>el.checked=false);
+  ['sActivityDetail','sSiblingDetail','sMultiDetail'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  document.getElementById('siblingRows').innerHTML='';document.getElementById('multiRows').innerHTML='';
+  document.getElementById('studentAddForm').style.display='none';
+  renderKarte();karteSelectedStudentId=s.id;renderKarteDetail(s.id);
+};
+window.retireStudent=(id)=>{const s=students.find(x=>x.id===id);if(!s)return;if(!confirm(`「${s.name}」さんを退会済みにします。よろしいですか？`))return;karteSnapshot();s.isRetired=true;s.retiredDate=new Date().toISOString().slice(0,10);s.dow=8;karteSelectedStudentId=null;renderKarte();document.getElementById('karteDetail').innerHTML='<div style="color:#aaa;font-size:14px;padding:40px 0;text-align:center">← 生徒を選択してください</div>';};
+window.reinstateStudent=(id)=>{const s=students.find(x=>x.id===id);if(!s)return;karteSnapshot();s.isRetired=false;s.retiredDate='';s.dow=1;renderKarte();};
+window.deleteStudent=(id)=>{if(!confirm('この生徒と全記録を完全削除しますか？'))return;karteSnapshot();students=students.filter(x=>x.id!==id);karteRecords=karteRecords.filter(r=>r.studentId!==id);karteSelectedStudentId=null;renderKarte();document.getElementById('karteDetail').innerHTML='<div style="color:#aaa;font-size:14px;padding:40px 0;text-align:center">← 生徒を選択してください</div>';};
+
+// ===== イベント参加チェックボックスHTML生成（年別対応） =====
+function buildEventCheckboxes(eventsData, yearStr){
+  // eventsData: { '2025': { summer_cat: true, ... }, '2026': {...} }
+  eventsData=eventsData||{};
+  const yearData=eventsData[yearStr]||{};
+  return `<div style="margin-bottom:8px;display:flex;align-items:center;gap:8px">
+    <span style="font-size:12px;color:#666">年度:</span>
+    <input class="inp" type="number" id="evYear" value="${yearStr}" min="2020" max="2040" style="width:72px;font-size:13px;padding:5px 8px" onchange="refreshEventCheckboxes(this.value,'${Object.keys(eventsData).join(',')}')">
+    <span style="font-size:11px;color:#aaa">（年度を変えると入力欄が切り替わります）</span>
+  </div>`+
+  EVENT_TREE.map(cat=>{
+    const catChecked=yearData[cat.id+'_cat']||false;
+    let html=`<div style="margin-bottom:10px;padding:8px 10px;background:#fafafa;border-radius:8px;border:1px solid #eee">
+      <label style="font-size:13px;font-weight:500;color:#444;display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:4px">
+        <input type="checkbox" id="ev_${cat.id}_cat" ${catChecked?'checked':''}> ${cat.label}
+      </label>`;
+    if(cat.children.length){
+      html+=`<div style="margin-left:18px;display:flex;flex-wrap:wrap;gap:4px 12px">`;
+      cat.children.forEach(child=>{
+        const key=cat.id+'_'+child;const checked=yearData[key]||false;
+        html+=`<label style="font-size:12px;color:#555;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" class="evChildChk" data-evkey="${key}" ${checked?'checked':''}> ${child}</label>`;
+      });
+      html+='</div>';
+    }
+    if(cat.custom){
+      const customItems=yearData[cat.id+'_custom']||[];
+      html+=`<div id="ev_${cat.id}_customList" style="margin-left:18px;margin-top:4px">`;
+      customItems.forEach((item,i)=>{html+=`<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px"><input class="inp" type="text" value="${item}" id="ev_other_${i}" style="flex:1;font-size:12px;padding:4px 7px"><button onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;color:#aaa;font-size:14px">×</button></div>`;});
+      html+='</div>';
+      html+=`<div style="margin-left:18px;margin-top:4px"><button class="btn small" style="font-size:11px" onclick="addCustomEvent()">＋ イベントを追加</button></div>`;
+    }
+    html+='</div>';
+    return html;
+  }).join('');
+}
+window.refreshEventCheckboxes=(yearStr, existingYears)=>{
+  // 編集モーダル内のイベントセクションを年度切り替えで再描画
+  const sec=document.getElementById('eEventSection');
+  if(!sec)return;
+  // 現在の入力値を保存（切り替え前）
+  const currentYear=document.getElementById('evYear')? document.getElementById('evYear').dataset.prevYear || yearStr : yearStr;
+  sec.innerHTML=buildEventCheckboxes(window._editingStudentEvents||{}, yearStr);
+  document.getElementById('evYear').dataset.prevYear=yearStr;
+};
+window.addCustomEvent=()=>{
+  const c=document.getElementById('ev_other_customList');if(!c)return;
+  const i=c.children.length;const d=document.createElement('div');
+  d.style.cssText='display:flex;align-items:center;gap:4px;margin-bottom:2px';
+  d.innerHTML=`<input class="inp" type="text" placeholder="イベント名" id="ev_other_${i}" style="flex:1;font-size:12px;padding:4px 7px"><button onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;color:#aaa;font-size:14px">×</button>`;
+  c.appendChild(d);
+};
+function collectEventData(yearStr){
+  // 既存のeventsDataを保ちながら当該年度だけ更新
+  const existing=window._editingStudentEvents||{};
+  const yearData={};
+  EVENT_TREE.forEach(cat=>{
+    const catEl=document.getElementById('ev_'+cat.id+'_cat');
+    if(catEl)yearData[cat.id+'_cat']=catEl.checked;
+    cat.children.forEach(child=>{
+      const key=cat.id+'_'+child;
+      const els=document.querySelectorAll('.evChildChk[data-evkey="'+key+'"]');
+      if(els.length)yearData[key]=els[els.length-1].checked;
+    });
+    if(cat.custom){
+      const customItems=[];
+      const listEl=document.getElementById('ev_'+cat.id+'_customList');
+      if(listEl)listEl.querySelectorAll('input[type=text]').forEach(el=>{if(el.value.trim())customItems.push(el.value.trim());});
+      yearData[cat.id+'_custom']=customItems;
+    }
+  });
+  return {...existing,[yearStr]:yearData};
+}
+
+// ===== 編集モーダル生成 =====
+window.openEditStudent=(id)=>{
+  const s=students.find(x=>x.id===id);if(!s)return;
+  const modal=document.createElement('div');modal.id='editModal';modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px';
+  const siblingsHtml=(s.siblings||[]).map((sb,i)=>`<div style="display:flex;gap:4px;margin-bottom:4px;flex-wrap:wrap"><input class="inp" type="text" placeholder="名前" id="esib${i}name" value="${sb.name||''}" style="width:150px;font-size:12px;padding:5px 7px"><input class="inp" type="text" placeholder="楽器" id="esib${i}inst" value="${sb.instrument||''}" style="width:80px;font-size:12px;padding:5px 7px"><input class="inp" type="text" placeholder="担当講師" id="esib${i}teacher" value="${sb.teacher||''}" style="width:80px;font-size:12px;padding:5px 7px"></div>`).join('');
+  const multiHtml=(s.multiInstruments||[]).map((m,i)=>`<div style="display:flex;gap:4px;margin-bottom:4px;flex-wrap:wrap"><input class="inp" type="text" placeholder="楽器" id="emul${i}inst" value="${m.instrument||''}" style="width:80px;font-size:12px;padding:5px 7px"><input class="inp" type="text" placeholder="担当講師" id="emul${i}teacher" value="${m.teacher||''}" style="width:80px;font-size:12px;padding:5px 7px"></div>`).join('');
+  const examsHtml=(s.exams||[]).map((e,i)=>`<div style="display:flex;gap:4px;margin-bottom:4px;align-items:center"><select class="inp" id="eex${i}name" style="flex:1;font-size:12px;padding:5px 7px">${KENTEI_OPT}</select><input class="inp" type="date" id="eex${i}date" value="${e.date||''}" style="font-size:12px;padding:5px 7px;border:1px solid #ccc;border-radius:8px"><button onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;color:#aaa;font-size:16px">×</button></div>`).join('');
+  const concertsHtml=(s.concerts||[]).map((c,i)=>`<div style="display:flex;gap:4px;margin-bottom:4px;align-items:center"><input class="inp" type="text" placeholder="会場名" id="eco${i}name" value="${c.name||''}" style="flex:1;font-size:12px;padding:5px 7px"><input class="inp" type="date" id="eco${i}date" value="${c.date||''}" style="font-size:12px;padding:5px 7px;border:1px solid #ccc;border-radius:8px"><button onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;color:#aaa;font-size:16px">×</button></div>`).join('');
+  const courseCheckboxes=COURSE_LIST.map(c=>`<label style="font-size:12px;color:#555;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" class="eCourseCk" value="${c}" ${(s.courses||[]).includes(c)?'checked':''}> ${c}</label>`).join('');
+  modal.innerHTML=`<div style="background:#fff;border-radius:14px;padding:1.5rem;max-width:540px;width:100%;max-height:90vh;overflow-y:auto">
+    <div style="font-size:16px;font-weight:500;margin-bottom:14px">生徒情報を編集</div>
+    <div class="kform-row"><span class="field-lbl">名前</span><input class="inp" type="text" id="eName" value="${s.name}" style="flex:1"></div>
+    <div class="kform-row"><span class="field-lbl">学年</span><select class="inp" id="eGrade" style="font-size:13px;padding:6px 8px;flex:1">${GRADE_OPT}</select></div>
+    <div class="kform-row"><span class="field-lbl">曜日</span><select class="inp" id="eDow" style="font-size:13px;padding:6px 8px;flex:1"><option value="1" ${s.dow==1?'selected':''}>月曜</option><option value="2" ${s.dow==2?'selected':''}>火曜</option><option value="3" ${s.dow==3?'selected':''}>水曜</option><option value="4" ${s.dow==4?'selected':''}>木曜</option><option value="5" ${s.dow==5?'selected':''}>金曜</option><option value="6" ${s.dow==6?'selected':''}>土曜</option><option value="0" ${s.dow==0?'selected':''}>日曜</option><option value="7" ${s.dow==7?'selected':''}>その他</option></select></div>
+    <div class="kform-row"><span class="field-lbl">開始日</span><input class="inp" type="date" id="eStartDate" value="${s.startDate||''}" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid #ccc;border-radius:8px"></div>
+    <div class="kform-row"><span class="field-lbl">検定級</span><select class="inp" id="eKentei" style="font-size:13px;padding:6px 8px;flex:1">${KENTEI_OPT}</select></div>
+    <div style="margin-bottom:8px"><div class="field-lbl" style="margin-bottom:5px">コース併用</div><div style="display:flex;flex-wrap:wrap;gap:5px 12px">${courseCheckboxes}</div></div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px;font-size:12px;color:#555">
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="eExam" ${s.exam?'checked':''}> 受験予定あり</label>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="eActivity" ${s.activity?'checked':''}> 習い事あり</label>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="eOnLeave" ${s.isOnLeave?'checked':''}> 休会中</label>
+    </div>
+    <div class="kform-row"><span class="field-lbl">習い事内容</span><input class="inp" type="text" id="eActivityText" value="${s.activityText||''}" placeholder="習い事の内容..." style="flex:1"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+      <div style="flex:1;min-width:120px"><span class="field-lbl">休会開始</span><input class="inp" type="date" id="eLeaveStart" value="${s.leaveStart||''}" style="width:100%;margin-top:3px;font-size:12px;padding:5px 7px;border:1px solid #ccc;border-radius:8px"></div>
+      <div style="flex:1;min-width:120px"><span class="field-lbl">休会終了（予定）</span><input class="inp" type="date" id="eLeaveEnd" value="${s.leaveEnd||''}" style="width:100%;margin-top:3px;font-size:12px;padding:5px 7px;border:1px solid #ccc;border-radius:8px"></div>
+    </div>
+    <div style="font-size:12px;font-weight:500;color:#666;margin:10px 0 6px">きょうだい情報</div>
+    <div id="eEditSibRows">${siblingsHtml}</div>
+    <button class="btn small" style="font-size:11px;margin-bottom:8px" onclick="addEditSibRow()">＋ きょうだいを追加</button>
+    <div style="font-size:12px;font-weight:500;color:#666;margin:10px 0 6px">他専攻</div>
+    <div id="eEditMultiRows">${multiHtml}</div>
+    <button class="btn small" style="font-size:11px;margin-bottom:8px" onclick="addEditMultiRow()">＋ 専攻を追加</button>
+    <div style="font-size:12px;font-weight:500;color:#666;margin:10px 0 6px">検定試験予定</div>
+    <div id="eExamRows">${examsHtml}</div>
+    <button class="btn small" style="font-size:11px;margin-bottom:8px" onclick="addExamRow()">＋ 検定を追加</button>
+    <div style="font-size:12px;font-weight:500;color:#666;margin:10px 0 6px">発表会予定</div>
+    <div id="eConcertRows">${concertsHtml}</div>
+    <button class="btn small" style="font-size:11px;margin-bottom:8px" onclick="addConcertRow()">＋ 発表会を追加</button>
+    <div style="font-size:12px;font-weight:500;color:#666;margin:10px 0 6px">🎉 イベント参加情報</div>
+    <div id="eEventSection">${buildEventCheckboxes(s.events||{},String(getCurrentYear()))}</div>
+    <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+      <button class="btn" style="background:#7F77DD;border-color:#7F77DD;color:#fff;font-size:13px" onclick="saveEditStudent('${id}')">保存</button>
+      <button class="btn" onclick="closeEditModal()">キャンセル</button>
+      <button class="btn" style="color:#E24B4A;border-color:#E24B4A;font-size:12px;margin-left:auto" onclick="deleteStudent('${id}');closeEditModal()">完全削除</button>
+    </div>
+  </div>`;
+  // 学年の現在値をセット
+  setTimeout(()=>{const el=document.getElementById('eGrade');if(el)el.value=s.grade||'';const ek=document.getElementById('eKentei');if(ek)ek.value=s.kentei||'';},10);
+  window._editingStudentEvents=s.events||{};
+  document.body.appendChild(modal);modal.addEventListener('click',e=>{if(e.target===modal)closeEditModal();});
+};
+window.closeEditModal=()=>{const m=document.getElementById('editModal');if(m)m.remove();};
+window.addEditSibRow=()=>{const c=document.getElementById('eEditSibRows');if(!c||c.children.length>=3)return;const i=c.children.length;const d=document.createElement('div');d.style.cssText='display:flex;gap:4px;margin-bottom:4px;flex-wrap:wrap';d.innerHTML=`<input class="inp" type="text" placeholder="名前" id="esib${i}name" style="width:150px;font-size:12px;padding:5px 7px"><input class="inp" type="text" placeholder="楽器" id="esib${i}inst" style="width:80px;font-size:12px;padding:5px 7px"><input class="inp" type="text" placeholder="担当講師" id="esib${i}teacher" style="width:80px;font-size:12px;padding:5px 7px">`;c.appendChild(d);};
+window.addEditMultiRow=()=>{const c=document.getElementById('eEditMultiRows');if(!c||c.children.length>=3)return;const i=c.children.length;const d=document.createElement('div');d.style.cssText='display:flex;gap:4px;margin-bottom:4px;flex-wrap:wrap';d.innerHTML=`<input class="inp" type="text" placeholder="楽器" id="emul${i}inst" style="width:80px;font-size:12px;padding:5px 7px"><input class="inp" type="text" placeholder="担当講師" id="emul${i}teacher" style="width:80px;font-size:12px;padding:5px 7px">`;c.appendChild(d);};
+window.addExamRow=()=>{const c=document.getElementById('eExamRows');if(!c)return;const i=c.children.length;const d=document.createElement('div');d.style.cssText='display:flex;gap:4px;margin-bottom:4px;align-items:center';d.innerHTML=`<select class="inp" id="eex${i}name" style="flex:1;font-size:12px;padding:5px 7px">${KENTEI_OPT}</select><input class="inp" type="date" id="eex${i}date" style="font-size:12px;padding:5px 7px;border:1px solid #ccc;border-radius:8px"><button onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;color:#aaa;font-size:16px">×</button>`;c.appendChild(d);};
+window.addConcertRow=()=>{const c=document.getElementById('eConcertRows');if(!c)return;const i=c.children.length;const d=document.createElement('div');d.style.cssText='display:flex;gap:4px;margin-bottom:4px;align-items:center';d.innerHTML=`<input class="inp" type="text" placeholder="会場名" id="eco${i}name" style="flex:1;font-size:12px;padding:5px 7px"><input class="inp" type="date" id="eco${i}date" style="font-size:12px;padding:5px 7px;border:1px solid #ccc;border-radius:8px"><button onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;color:#aaa;font-size:16px">×</button>`;c.appendChild(d);};
+window.saveEditStudent=(id)=>{
+  const s=students.find(x=>x.id===id);if(!s)return;
+  karteSnapshot();
+  s.name=document.getElementById('eName').value.trim()||s.name;
+  s.grade=document.getElementById('eGrade').value;
+  s.dow=Number(document.getElementById('eDow').value);
+  s.startDate=document.getElementById('eStartDate').value;
+  s.kentei=document.getElementById('eKentei').value;
+  s.courses=[...document.querySelectorAll('.eCourseCk:checked')].map(el=>el.value);
+  s.exam=document.getElementById('eExam').checked;
+  s.activity=document.getElementById('eActivity').checked;
+  s.activityText=document.getElementById('eActivityText').value.trim();
+  s.isOnLeave=document.getElementById('eOnLeave').checked;
+  s.leaveStart=document.getElementById('eLeaveStart').value;
+  s.leaveEnd=document.getElementById('eLeaveEnd').value;
+  const sibs=[];for(let i=0;i<6;i++){const n=document.getElementById('esib'+i+'name');if(n&&n.value.trim())sibs.push({name:n.value.trim(),instrument:(document.getElementById('esib'+i+'inst')||{}).value||'',teacher:(document.getElementById('esib'+i+'teacher')||{}).value||''});}s.siblings=sibs;
+  const multi=[];for(let i=0;i<6;i++){const n=document.getElementById('emul'+i+'inst');if(n&&n.value.trim())multi.push({instrument:n.value.trim(),teacher:(document.getElementById('emul'+i+'teacher')||{}).value||''});}s.multiInstruments=multi;
+  const exams=[];document.querySelectorAll('#eExamRows > div').forEach(row=>{const inputs=row.querySelectorAll('select,input[type=date]');if(inputs[0]&&inputs[0].value.trim())exams.push({name:inputs[0].value.trim(),date:inputs[1]?inputs[1].value:''});});s.exams=exams;
+  const concerts=[];document.querySelectorAll('#eConcertRows > div').forEach(row=>{const inputs=row.querySelectorAll('input');if(inputs[0]&&inputs[0].value.trim())concerts.push({name:inputs[0].value.trim(),date:inputs[1]?inputs[1].value:''});});s.concerts=concerts;
+  const evYear=document.getElementById('evYear');
+  s.events=collectEventData(evYear?evYear.value:String(getCurrentYear()));
+  const smEl=document.getElementById('eStudentMemo');if(smEl)s.studentMemo=smEl.value.trim();
+  renderKarte();closeEditModal();if(karteSelectedStudentId===id)renderKarteDetail(id);
+};
+
+// ===== カルテ レンダリング =====
+window.renderKarte=function(){
+  const dowEl=document.getElementById('dowTabs');if(!dowEl)return;
+  const tabs=[{key:1,label:'月'},{key:2,label:'火'},{key:3,label:'水'},{key:4,label:'木'},{key:5,label:'金'},{key:6,label:'土'},{key:0,label:'日'},{key:7,label:'その他'},{key:8,label:'退会'}];
+  const isSearching=karteSearchQuery||karteFilterGrade||karteFilterScore;
+  dowEl.style.display=isSearching?'none':'flex';
+  dowEl.innerHTML=tabs.map(t=>{const cnt=students.filter(s=>Number(s.dow)===t.key).length;const style=t.key===8?'background:#f5f5f3;color:#aaa;border-color:#ddd':'';return`<button class="dow-tab${karteDow===t.key?' active':''}" style="${style}" onclick="setKarteDow(${t.key})">${t.label}${t.key>=7?'':'曜'} <span style="font-size:10px;opacity:.7">${cnt}</span></button>`;}).join('');
+  const list=document.getElementById('studentList');
+  let filtered;
+  if(isSearching){
+    filtered=students.filter(s=>!s.isRetired&&matchStudent(s));
+    document.getElementById('karteStudentListLabel').textContent='検索結果 ('+filtered.length+'人)';
+  } else {
+    filtered=students.filter(s=>Number(s.dow)===karteDow&&matchStudent(s));
+    const dowName=tabs.find(t=>t.key===karteDow);
+    document.getElementById('karteStudentListLabel').textContent=(dowName?dowName.label+(karteDow>=7?'':'曜'):'')+'の生徒 ('+filtered.length+'人)';
+  }
+  list.innerHTML=filtered.length===0?'<div style="font-size:13px;color:#aaa;padding:8px 0">生徒がいません</div>':
+    filtered.map(s=>{
+      const avgScore=getAvgAchievement(s.id);
+      const badges=[];
+      if(s.isOnLeave)badges.push('<span style="font-size:10px;background:#FAEEDA;color:#633806;border:0.5px solid #FAC775;border-radius:4px;padding:1px 5px">休会中</span>');
+      if(s.kentei)badges.push(`<span style="font-size:10px;background:#EAF3DE;color:#639922;border:0.5px solid #639922;border-radius:4px;padding:1px 5px">${s.kentei}</span>`);
+      if(s.courses&&s.courses.length)badges.push(`<span style="font-size:10px;background:#E6F1FB;color:#0C447C;border:0.5px solid #85B7EB;border-radius:4px;padding:1px 5px">${s.courses[0]}${s.courses.length>1?' 他':''}]</span>`.replace(']',''));
+      return`<div class="student-card${karteSelectedStudentId===s.id?' active':''}" onclick="selectStudent('${s.id}')">
+        <div class="student-name">${s.name}${badges.length?' '+badges.join(''):''}</div>
+        <div class="student-meta"><span>${s.grade||'—'}</span>${avgScore?'<span style="color:#1D9E75;margin-left:4px">達成'+avgScore+'</span>':''}</div>
+      </div>`;
+    }).join('');
+  if(karteSelectedStudentId){const sel=students.find(x=>x.id===karteSelectedStudentId);if(sel&&(isSearching||Number(sel.dow)===karteDow))renderKarteDetail(karteSelectedStudentId);else{karteSelectedStudentId=null;document.getElementById('karteDetail').innerHTML='<div style="color:#aaa;font-size:14px;padding:40px 0;text-align:center">← 生徒を選択してください</div>';}}
+};
+
+function getAvgAchievement(sid){const recs=karteRecords.filter(r=>r.studentId===sid&&r.scores&&r.scores.achievement);if(!recs.length)return'';const avg=(recs.reduce((a,r)=>a+r.scores.achievement,0)/recs.length).toFixed(1);return'★'+avg;}
+window.setKarteDow=(d)=>{karteDow=d;karteSelectedStudentId=null;renderKarte();};
+window.selectStudent=(id)=>{karteSelectedStudentId=id;document.querySelectorAll('.student-card').forEach(el=>el.classList.remove('active'));event.currentTarget.classList.add('active');renderKarteDetail(id);};
+
+// ===== 生徒全情報表示 =====
+function buildStudentInfoBlock(s){
+
+  return`
+  <div class="karte-section">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
+      <div style="flex:1">
+        <div style="font-size:18px;font-weight:500">${s.name}${s.isOnLeave?'<span style="font-size:11px;background:#FAEEDA;color:#633806;border:0.5px solid #FAC775;border-radius:99px;padding:2px 8px;margin-left:6px">休会中</span>':''}</div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:4px 16px;margin-top:8px;font-size:12px">
+          <div><span style="color:#999">学年</span> ${s.grade||'—'}</div>
+          <div><span style="color:#999">曜日</span> ${'日月火水木金土その他退会'.split('').filter((_,i)=>i<9)[s.dow]||'—'}曜</div>
+          <div><span style="color:#999">開始日</span> ${s.startDate||'—'}</div>
+          <div><span style="color:#999">検定級</span> ${s.kentei||'—'}</div>
+          <div style="grid-column:1/-1"><span style="color:#999">コース</span> ${(s.courses||[]).join('、')||'—'}</div>
+          <div><span style="color:#999">受験</span> ${s.exam?'あり':'なし'}</div>
+          <div><span style="color:#999">習い事</span> ${s.activity?(s.activityText||'あり'):'なし'}</div>
+          ${(s.siblings||[]).length?`<div style="grid-column:1/-1"><span style="color:#999">きょうだい</span> ${s.siblings.map(sb=>sb.name+(sb.instrument?' ('+sb.instrument+')':'')).join('、')}</div>`:''}
+          ${(s.multiInstruments||[]).length?`<div style="grid-column:1/-1"><span style="color:#999">他専攻</span> ${s.multiInstruments.map(m=>m.instrument).join('、')}</div>`:''}
+          ${(s.exams||[]).length?`<div style="grid-column:1/-1"><span style="color:#999">🎓検定予定</span> ${s.exams.map(e=>e.name+(e.date?' ('+e.date+')':'')).join('、')}</div>`:''}
+          ${(s.concerts||[]).length?`<div style="grid-column:1/-1"><span style="color:#999">🎹発表会</span> ${s.concerts.map(c=>c.name+(c.date?' ('+c.date+')':'')).join('、')}</div>`:''}
+
+          ${s.isOnLeave?`<div><span style="color:#999">休会期間</span> ${s.leaveStart||'—'}〜${s.leaveEnd||'—'}</div>`:''}
+        </div>
+        <div style="margin-top:10px">
+          <div style="font-size:11px;color:#888;margin-bottom:4px;font-weight:500">📝 生徒メモ</div>
+          <textarea id="inlineMemo_${s.id}" placeholder="生徒の様子や好きなものなど..." style="width:100%;min-height:60px;resize:vertical;font-size:12px;line-height:1.6;padding:8px 10px;border:1px solid #FAC775;border-radius:8px;background:#FAEEDA;color:#633806;font-family:inherit">${s.studentMemo||''}</textarea>
+          <div style="display:flex;justify-content:flex-end;margin-top:4px">
+            <button class="btn small" style="font-size:11px;background:#FAC775;border-color:#FAC775;color:#633806" onclick="saveStudentMemo('${s.id}')">メモを保存</button>
+            <span id="memoSaved_${s.id}" style="font-size:11px;color:#1D9E75;margin-left:8px;display:none;align-self:center">保存しました！</span>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn small" onclick="openEditStudent('${s.id}')">✏️ 編集</button>
+        ${s.isRetired?`<button class="btn small" onclick="reinstateStudent('${s.id}')">再入会</button>`:`<button class="btn small" style="color:#E24B4A;border-color:#E24B4A" onclick="retireStudent('${s.id}')">退会</button>`}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ===== カルテ詳細レンダリング =====
+function renderSongList(rec){
+  const active=(rec.songs||[]).filter(sg=>!sg.passedDate);
+  if(!active.length)return'<div style="font-size:12px;color:#aaa">曲を追加してください</div>';
+  return active.map(sg=>`<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:0.5px solid #eee"><span style="font-size:13px;flex:1">🎵 ${sg.title}</span><button class="btn small" style="background:#E1F5EE;border-color:#5DCAA5;color:#085041;font-size:11px" onclick="passSong('${rec.id}','${sg.id}')">合格！</button></div>`).join('');
+}
+function renderLessonTodos(rec){
+  if(!rec.lessonTodos||!rec.lessonTodos.length)return'<div style="font-size:12px;color:#aaa">TODOを追加してください</div>';
+  const today=new Date().toISOString().slice(0,10);
+  return [...rec.lessonTodos].sort((a,b)=>{if(a.done&&!b.done)return 1;if(!a.done&&b.done)return -1;if(a.deadline&&b.deadline)return a.deadline.localeCompare(b.deadline);if(a.deadline)return -1;if(b.deadline)return 1;return 0;})
+  .map(t=>{const isOver=t.deadline&&t.deadline<today&&!t.done;return`<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:0.5px solid #eee;${t.done?'opacity:.5':''}"><span style="font-size:13px;flex:1;${t.done?'text-decoration:line-through':''}">${t.text}${t.deadline?`<span style="font-size:11px;color:${isOver?'#E24B4A':'#888'};margin-left:6px">〜${t.deadline}</span>`:''}</span>${!t.done?`<button class="btn small" style="font-size:11px;background:#E1F5EE;border-color:#5DCAA5;color:#085041" onclick="completeLessonTodo('${rec.id}','${t.id}')">完了</button>`:'<span style="font-size:11px;color:#1D9E75">✓完了</span>'}</div>`;}).join('');
+}
+function renderKarteDetail(sid,targetDate){
+  const s=students.find(x=>x.id===sid);if(!s)return;
+  const today=new Date().toISOString().slice(0,10);
+  const editDate=targetDate||today;
+  const allRecs=karteRecords.filter(r=>r.studentId===sid).sort((a,b)=>b.date.localeCompare(a.date));
+  // 引き継ぎ元は編集日より前の最新記録
+  const baseRec=allRecs.find(r=>r.date<editDate)||allRecs[0]||null;
+  const prevMission=baseRec?baseRec.mission||'':'';
+  const inheritSongs=baseRec?(baseRec.songs||[]).filter(sg=>!sg.passedDate):[];
+  const inheritTodos=baseRec?(baseRec.lessonTodos||[]).filter(t=>!t.done):[];
+  let editRec=allRecs.find(r=>r.date===editDate)||null;
+  if(!editRec){editRec={id:'kr_'+Date.now(),studentId:sid,date:editDate,scores:{motivation:0,achievement:0,lessonQuality:0,missionClarity:0},songs:[...inheritSongs.map(sg=>({...sg}))],mission:'',prevMission,lessonTodos:[...inheritTodos.map(t=>({...t}))],memo:'',passedSongs:[]};karteRecords.push(editRec);}
+  const chartData=allRecs.slice(0,10).reverse();
+  const SCORE_DEF=[{key:'motivation',label:'レッスンへの意欲',descs:['','意欲がなかった','少し低め','いつも通り','意欲があった','とても意欲的']},{key:'achievement',label:'課題達成度',descs:['','ほぼできていない','あまりできていない','まあまあ','よくできた','とてもよくできた']},{key:'lessonQuality',label:'意欲を引き出すレッスンができたか',descs:['','できなかった','あまりできなかった','まあまあ','よくできた','とてもよくできた']},{key:'missionClarity',label:'ミッションを齟齬なく伝えられたか',descs:['','伝わらなかった','やや不十分','まあまあ','よく伝えられた','完璧に伝えられた']}];
+  // イベントサマリー生成
+  function buildEventSummaryCard(s){
+    const evData=s.events||{};
+    const years=Object.keys(evData).sort().reverse();
+    if(!years.length)return'';
+    const rows=years.map(year=>{
+      const yData=evData[year]||{};
+      const participated=[];
+      EVENT_TREE.forEach(cat=>{
+        if(yData[cat.id+'_cat']){
+          const children=cat.children.filter(c=>yData[cat.id+'_'+c]);
+          const customs=(yData[cat.id+'_custom']||[]);
+          if(children.length||customs.length){
+            participated.push(cat.label+': '+[...children,...customs].join('・'));
+          } else {
+            participated.push(cat.label);
+          }
+        }
+      });
+      if(!participated.length)return'';
+      return`<div style="margin-bottom:4px"><span style="font-size:11px;font-weight:500;color:#3C3489;background:#EEEDFE;padding:1px 6px;border-radius:4px;margin-right:6px">${year}年</span><span style="font-size:12px">${participated.join('　')}</span></div>`;
+    }).filter(Boolean).join('');
+    if(!rows)return'';
+    return`<div class="karte-section"><div class="karte-section-title">🎉 イベント参加履歴</div>${rows}</div>`;
+  }
+  document.getElementById('karteDetail').innerHTML=
+    buildStudentInfoBlock(s)+
+    buildEventSummaryCard(s)+`
+  <div class="karte-section">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+      <div class="karte-section-title" style="margin-bottom:0">📝 レッスン記録</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="date" id="lessonDatePicker_${editRec.id}" value="${editRec.date}"
+          style="font-size:13px;padding:5px 10px;border:1px solid #AFA9EC;border-radius:8px;background:#EEEDFE;color:#3C3489;cursor:pointer"
+          onchange="switchLessonDate('${sid}','${editRec.id}',this.value)">
+        <span style="font-size:11px;color:#888">日付を変更すると別日の記録に切り替わります</span>
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      ${SCORE_DEF.map(item=>`<div style="margin-bottom:10px"><div style="font-size:12px;color:#666;margin-bottom:4px">${item.label}</div><div style="display:flex;align-items:center;gap:6px">${[1,2,3,4,5].map(n=>`<span class="star${(editRec.scores[item.key]||0)>=n?' on':''}" data-key="${item.key}" data-v="${n}" onclick="setScore('${editRec.id}','${item.key}',${n})">★</span>`).join('')}<span style="font-size:11px;color:#888" id="scoreLabel_${item.key}">${item.descs[editRec.scores[item.key]||0]||''}</span></div></div>`).join('')}
+    </div>
+    ${prevMission?`<div style="margin-bottom:12px;padding:8px 12px;background:#f5f5f3;border-radius:8px;border-left:3px solid #AFA9EC"><div style="font-size:11px;color:#666;margin-bottom:3px">📖 先週のミッション</div><div style="font-size:13px;white-space:pre-wrap">${prevMission}</div></div>`:''}
+    <div style="margin-bottom:12px">
+      <div style="font-size:12px;color:#666;margin-bottom:6px;font-weight:500">🎵 現在取り組んでいる曲</div>
+      <div id="songList_${editRec.id}">${renderSongList(editRec)}</div>
+      <div style="display:flex;gap:6px;margin-top:6px"><input class="inp" type="text" id="newSongInput_${editRec.id}" placeholder="曲名を追加..." style="flex:1;font-size:13px"><button class="btn small" onclick="addSong('${editRec.id}')">追加</button></div>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:12px;color:#666;margin-bottom:4px;font-weight:500">📋 今週のミッション</div>
+      <textarea class="memo-area" id="mission_${editRec.id}" placeholder="今週のミッション・課題..." style="min-height:60px;width:100%">${editRec.mission||''}</textarea>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:12px;color:#666;margin-bottom:6px;font-weight:500">✅ レッスンTODO</div>
+      <div id="lessonTodoList_${editRec.id}">${renderLessonTodos(editRec)}</div>
+      <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+        <input class="inp" type="text" id="newTodoText_${editRec.id}" placeholder="TODOを追加..." style="flex:1;min-width:120px;font-size:13px">
+        <input class="inp" type="date" id="newTodoDeadline_${editRec.id}" style="width:130px;font-size:12px;padding:6px 8px;border:1px solid #ccc;border-radius:8px">
+        <button class="btn small" onclick="addLessonTodo('${editRec.id}','${s.name}')">追加</button>
+        <button class="btn small" style="background:#EEEDFE;border-color:#AFA9EC;color:#3C3489;font-size:11px" onclick="pushTodoToScheduler('${editRec.id}','${s.name}')">📋 全件送る</button>
+      </div>
+      <label style="font-size:12px;color:#555;display:flex;align-items:center;gap:5px;cursor:pointer;margin-top:6px">
+        <input type="checkbox" id="autoSendTodo_${editRec.id}"> 追加時に自動でスケジューラーTODOへも送る
+      </label>
+    </div>
+    <div style="margin-bottom:14px">
+      <div style="font-size:12px;color:#666;margin-bottom:4px;font-weight:500">💬 メモ</div>
+      <textarea class="memo-area" id="memo_${editRec.id}" placeholder="気になったこと、次回へのメモ..." style="min-height:50px;width:100%">${editRec.memo||''}</textarea>
+    </div>
+    <button class="btn" style="background:#7F77DD;border-color:#7F77DD;color:#fff" onclick="saveKarteRecord('${editRec.id}')">💾 保存</button>
+    <span id="karteSaveMsg" style="font-size:12px;color:#1D9E75;margin-left:10px;display:none">保存しました！</span>
+  </div>
+  ${chartData.length>1?`<div class="karte-section"><div class="karte-section-title">📈 意欲・達成度の推移（直近${chartData.length}回）</div>${buildScoreChart(chartData)}</div>`:''}
+  <div class="karte-section">
+    <div class="karte-section-title">📚 過去の記録（${allRecs.length}件）</div>
+    <div class="history-list">
+      ${buildHistoryHTML(allRecs,sid)}
+    </div>
+  </div>`;
+  const missionEl=document.getElementById('mission_'+editRec.id);
+  if(missionEl)missionEl.oninput=()=>{const rec=karteRecords.find(r=>r.id===editRec.id);if(rec)rec.mission=missionEl.value;};
+  const memoEl=document.getElementById('memo_'+editRec.id);
+  if(memoEl)memoEl.oninput=()=>{const rec=karteRecords.find(r=>r.id===editRec.id);if(rec)rec.memo=memoEl.value;};
+}
+
+// ===== カルテ操作 =====
+window.setScore=(recId,key,val)=>{const rec=karteRecords.find(r=>r.id===recId);if(!rec)return;if(!rec.scores)rec.scores={};rec.scores[key]=val;document.querySelectorAll(`.star[data-key="${key}"]`).forEach(s=>{s.classList.toggle('on',Number(s.dataset.v)<=val);});const descs={motivation:['','意欲がなかった','少し低め','いつも通り','意欲があった','とても意欲的'],achievement:['','ほぼできていない','あまりできていない','まあまあ','よくできた','とてもよくできた'],lessonQuality:['','できなかった','あまりできなかった','まあまあ','よくできた','とてもよくできた'],missionClarity:['','伝わらなかった','やや不十分','まあまあ','よく伝えられた','完璧に伝えられた']};const lbl=document.getElementById('scoreLabel_'+key);if(lbl)lbl.textContent=(descs[key]||[])[val]||'';};
+window.addSong=(recId)=>{const inp=document.getElementById('newSongInput_'+recId);if(!inp||!inp.value.trim())return;const rec=karteRecords.find(r=>r.id===recId);if(!rec)return;if(!rec.songs)rec.songs=[];rec.songs.push({id:'sg_'+Date.now(),title:inp.value.trim(),passedDate:''});inp.value='';document.getElementById('songList_'+recId).innerHTML=renderSongList(rec);};
+window.passSong=(recId,songId)=>{const rec=karteRecords.find(r=>r.id===recId);if(!rec||!rec.songs)return;const sg=rec.songs.find(s=>s.id===songId);if(!sg)return;const passedDate=new Date().toISOString().slice(0,10);sg.passedDate=passedDate;if(!rec.passedSongs)rec.passedSongs=[];rec.passedSongs.push({title:sg.title,passedDate});document.getElementById('songList_'+recId).innerHTML=renderSongList(rec);scheduleSave();};
+window.addLessonTodo=(recId,studentName)=>{
+  const inp=document.getElementById('newTodoText_'+recId);
+  const dl=document.getElementById('newTodoDeadline_'+recId);
+  if(!inp||!inp.value.trim())return;
+  const rec=karteRecords.find(r=>r.id===recId);if(!rec)return;
+  if(!rec.lessonTodos)rec.lessonTodos=[];
+  const todoId='lt_'+Date.now();
+  const newTodo={id:todoId,text:inp.value.trim(),deadline:dl?dl.value:'',done:false,doneDate:''};
+  rec.lessonTodos.push(newTodo);
+  inp.value='';if(dl)dl.value='';
+  document.getElementById('lessonTodoList_'+recId).innerHTML=renderLessonTodos(rec);
+  // 自動送信チェック
+  const autoChk=document.getElementById('autoSendTodo_'+recId);
+  if(autoChk&&autoChk.checked&&studentName){
+    if(!todosArr.find(x=>x.lessonTodoId===todoId)){
+      todosArr.push({label:'【'+studentName+'】'+newTodo.text,cat:'lesson',requester:'',deadline:newTodo.deadline||'',estimate:'',done:false,source:'karte',studentName,lessonTodoId:todoId});
+      scheduleSave();renderTodos();
+    }
+  }
+};
+window.completeLessonTodo=(recId,todoId)=>{const rec=karteRecords.find(r=>r.id===recId);if(!rec||!rec.lessonTodos)return;const t=rec.lessonTodos.find(x=>x.id===todoId);if(!t)return;t.done=true;t.doneDate=new Date().toISOString().slice(0,10);document.getElementById('lessonTodoList_'+recId).innerHTML=renderLessonTodos(rec);const match=todosArr.find(x=>x.source==='karte'&&x.lessonTodoId===todoId);if(match){match.done=true;}scheduleSave();renderTodos();};
+window.pushTodoToScheduler=(recId,studentName)=>{const rec=karteRecords.find(r=>r.id===recId);if(!rec||!rec.lessonTodos)return;const pending=rec.lessonTodos.filter(t=>!t.done);if(!pending.length){alert('未完了のTODOがありません');return;}let added=0;pending.forEach(t=>{if(!todosArr.find(x=>x.lessonTodoId===t.id)){todosArr.push({label:'【'+studentName+'】'+t.text,cat:'lesson',requester:'',deadline:t.deadline||'',estimate:'',done:false,source:'karte',studentName,lessonTodoId:t.id});added++;}});scheduleSave();renderTodos();alert(added+'件をスケジューラーTODOに追加しました');};
+window.saveKarteRecord=(recId)=>{const rec=karteRecords.find(r=>r.id===recId);if(!rec)return;const missionEl=document.getElementById('mission_'+recId);if(missionEl)rec.mission=missionEl.value;const memoEl=document.getElementById('memo_'+recId);if(memoEl)rec.memo=memoEl.value;karteSnapshot();const msg=document.getElementById('karteSaveMsg');if(msg){msg.style.display='inline';setTimeout(()=>msg.style.display='none',2000);}};
+window.deleteKarteRecord=(sid,displayIdx)=>{const recs=karteRecords.filter(r=>r.studentId===sid).sort((a,b)=>b.date.localeCompare(a.date));const target=recs[displayIdx];if(!target)return;if(!confirm('この記録を削除しますか？'))return;const idx=karteRecords.findIndex(r=>r.id===target.id);if(idx>=0)karteRecords.splice(idx,1);scheduleSave();renderKarteDetail(sid);};
+
+window.saveStudentMemo=(sid)=>{
+  const el=document.getElementById('inlineMemo_'+sid);
+  if(!el)return;
+  const s=students.find(x=>x.id===sid);
+  if(!s)return;
+  s.studentMemo=el.value.trim();
+  scheduleSave();
+  const msg=document.getElementById('memoSaved_'+sid);
+  if(msg){msg.style.display='inline';setTimeout(()=>msg.style.display='none',2000);}
+};
+
+window.switchLessonDate=(sid, currentRecId, newDate)=>{
+  // 選択日の記録を探す or 新規作成
+  const existing=karteRecords.find(r=>r.studentId===sid&&r.date===newDate);
+  if(existing){
+    // 既存記録に切り替え
+    karteSelectedStudentId=sid;
+    renderKarteDetail(sid,newDate);
+  } else {
+    // 新しい日付で記録作成（未合格の曲・未完了TODOを引き継ぐ）
+    const allR=karteRecords.filter(r=>r.studentId===sid).sort((a,b)=>b.date.localeCompare(a.date));
+    const baseR=allR.find(r=>r.date<newDate)||allR[0]||null;
+    const iSongs=baseR?(baseR.songs||[]).filter(sg=>!sg.passedDate).map(sg=>({...sg})):[];
+    const iTodos=baseR?(baseR.lessonTodos||[]).filter(t=>!t.done).map(t=>({...t})):[];
+    const iPrevMission=baseR?baseR.mission||'':'';
+    const newRec={id:'kr_'+Date.now(),studentId:sid,date:newDate,
+      scores:{motivation:0,achievement:0,lessonQuality:0,missionClarity:0},
+      songs:iSongs,mission:'',prevMission:iPrevMission,lessonTodos:iTodos,memo:'',passedSongs:[]};
+    karteRecords.push(newRec);
+    renderKarteDetail(sid,newDate);
+  }
+};
+
+function buildHistoryHTML(allRecs, sid){
+  if(!allRecs.length)return'<div style="color:#aaa;font-size:13px">まだ記録がありません</div>';
+
+  function recCard(r,i){
+    return`<div class="history-item">
+      <div class="history-date"><span style="font-weight:500">${r.date}</span>
+        ${r.scores&&r.scores.motivation?`<span class="history-stars">${'★'.repeat(r.scores.motivation)}</span><span style="font-size:10px;color:#888">意欲</span>`:''}
+        ${r.scores&&r.scores.achievement?`<span class="history-stars" style="color:#5DCAA5">${'★'.repeat(r.scores.achievement)}</span><span style="font-size:10px;color:#888">達成</span>`:''}
+        <button onclick="deleteKarteRecord('${sid}',${i})" style="background:none;border:none;cursor:pointer;color:#ddd;font-size:13px;margin-left:auto">×</button>
+      </div>
+      <div class="history-body">
+        ${(r.songs||[]).filter(sg=>!sg.passedDate).map(sg=>`<div>🎵 ${sg.title}</div>`).join('')}
+        ${(r.passedSongs||[]).map(sg=>`<div style="color:#1D9E75">✅ ${sg.title} 合格${sg.passedDate?' ('+sg.passedDate+')':''}</div>`).join('')}
+        ${r.mission?`<div>📋 ${r.mission}</div>`:''}
+        ${(r.lessonTodos||[]).length?`<div>TODO: ${r.lessonTodos.map(t=>`<span style="opacity:${t.done?.5:1}">${t.text}</span>`).join(' / ')}</div>`:''}
+        ${r.memo?`<div style="color:#888;margin-top:3px">💬 ${r.memo}</div>`:''}
+      </div>
+    </div>`;
+  }
+
+  // 直近2件は常に展開
+  const recent = allRecs.slice(0,2);
+  const older  = allRecs.slice(2);
+
+  let html = recent.map((r,i)=>recCard(r,i)).join('');
+
+  if(!older.length) return html;
+
+  // 2件目以降を月ごとにグループ化
+  const months={};
+  older.forEach((r,i)=>{
+    const m=r.date.slice(0,7); // "2025-04"
+    if(!months[m])months[m]=[];
+    months[m].push({r,i:i+2});
+  });
+
+  Object.keys(months).sort().reverse().forEach(m=>{
+    const label=m.replace('-','年')+'月';
+    const cnt=months[m].length;
+    const uid='hist_'+sid+'_'+m.replace('-','_');
+    html+=`<details style="margin-top:6px;border:1px solid #eee;border-radius:8px;overflow:hidden">
+      <summary style="cursor:pointer;padding:8px 12px;background:#f9f9f9;font-size:12px;font-weight:500;color:#555;list-style:none;display:flex;align-items:center;justify-content:space-between">
+        <span>📅 ${label}（${cnt}件）</span>
+        <span style="font-size:11px;color:#aaa">▼</span>
+      </summary>
+      <div style="padding:6px 6px 4px">
+        ${months[m].map(({r,i})=>recCard(r,i)).join('')}
+      </div>
+    </details>`;
+  });
+
+  return html;
+}
+
+function buildScoreChart(recs){if(recs.length<2)return'';const W=380,H=100,pad=24;const series=[{key:'motivation',color:'#7F77DD',label:'意欲'},{key:'achievement',color:'#1D9E75',label:'達成度'}];const xs=recs.map((_,i)=>pad+i*(W-pad*2)/(recs.length-1));const yOf=(v)=>H-pad-(((v||0)-1)*(H-pad*2)/4);const lines=series.map(s=>{const pts=recs.map((r,i)=>[xs[i],yOf(r.scores&&r.scores[s.key]?r.scores[s.key]:0)]).filter(p=>p[1]>=pad&&p[1]<=H-pad);if(pts.length<2)return'';const path='M'+pts.map(p=>p.join(',')).join('L');const dots=pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="${s.color}"/>`).join('');return`<path d="${path}" fill="none" stroke="${s.color}" stroke-width="2"/>${dots}`;}).join('');const legend=series.map(s=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:${s.color}"><span style="display:inline-block;width:10px;height:2px;background:${s.color}"></span>${s.label}</span>`).join('&nbsp;&nbsp;');return`<div style="margin-bottom:4px">${legend}</div><svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px"><line x1="${pad}" y1="${pad}" x2="${pad}" y2="${H-pad}" stroke="#eee" stroke-width="1"/><line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="#eee" stroke-width="1"/>${[1,2,3,4,5].map(n=>`<text x="4" y="${yOf(n)+4}" font-size="9" fill="#bbb">${n}</text>`).join('')}${lines}</svg>`;}
+
+function patchTodoListWithKarteBadge(){const list=document.getElementById('todoList');if(!list)return;const sorted=[...todosArr.map((t,i)=>({...t,_orig:i}))].sort((a,b)=>{if(a.deadline&&b.deadline)return a.deadline.localeCompare(b.deadline);if(a.deadline&&!b.deadline)return -1;if(!a.deadline&&b.deadline)return 1;return 0;});list.querySelectorAll('.todo-row').forEach((row,i)=>{const t=sorted[i];if(t&&t.source==='karte'){const span=row.querySelector('span:first-child');if(span&&!span.querySelector('.todo-source-badge'))span.insertAdjacentHTML('afterbegin','<span class="todo-source-badge">🎵レッスン</span>');}});}
+
 render();
+setTimeout(patchTodoListWithKarteBadge,200);
 </script>
 </body>
 </html>
