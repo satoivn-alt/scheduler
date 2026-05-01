@@ -944,10 +944,46 @@ function render(){
     prevMissed.forEach((t,pi)=>{let timeId='pm_time_'+pi;let row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:7px;padding:6px 10px;border-radius:8px;margin-bottom:5px;font-size:12px;background:#FAEEDA;border:1px solid #FAC775;color:#633806';row.innerHTML=`<input id="${timeId}" class="inbox-time-inp" type="time" value="${t.start}" style="border-color:#FAC775;color:#633806" onkeydown="handleDot(event,'${timeId}')"><span style="flex:1">${t.label}</span><span style="font-size:10px;opacity:.6">${getCatObj(t.cat).label}</span><button onclick="addPrevToTimeline(${pi},'${timeId}')" style="background:#fff;border:1px solid #FAC775;border-radius:6px;padding:2px 8px;font-size:11px;color:#633806;cursor:pointer">追加</button>`;tl.appendChild(row);});
     tl.appendChild(Object.assign(document.createElement('div'),{className:'tl-sep'}));
   }
-  let pendingTodos=todosArr.filter(t=>!t.done);
+  let _today=getKey(new Date());
+  let _2w=new Date();_2w.setDate(_2w.getDate()+14);let _2wKey=getKey(_2w);
+  let _1m=new Date();_1m.setMonth(_1m.getMonth()+1);let _1mKey=getKey(_1m);
+  let pendingTodos=[...todosArr.filter(t=>!t.done)].sort((a,b)=>{
+    if(a.deadline&&b.deadline)return a.deadline.localeCompare(b.deadline);
+    if(a.deadline&&!b.deadline)return -1;if(!a.deadline&&b.deadline)return 1;return 0;
+  });
   if(pendingTodos.length>0){
-    let hdr2=document.createElement('div');hdr2.style.cssText='font-size:11px;color:#0C447C;background:#E6F1FB;border:1px solid #85B7EB;border-radius:7px;padding:5px 10px;margin-bottom:6px;font-weight:500';hdr2.textContent='TODOリスト';tl.appendChild(hdr2);
-    pendingTodos.forEach(t=>{let realIdx=todosArr.indexOf(t);let timeId='td_time_'+realIdx;let today=getKey(new Date());let isOver=t.deadline&&t.deadline<today;let st=t.cat?chipStyle(t.cat,false):{bg:'#E6F1FB',border:'#85B7EB',text:'#0C447C'};let row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:7px;padding:6px 10px;border-radius:8px;margin-bottom:5px;font-size:12px;background:#E6F1FB;border:1px solid #85B7EB;color:#0C447C';row.innerHTML=`<input id="${timeId}" class="inbox-time-inp" type="time" value="${nowTimeStr()}" style="border-color:#85B7EB;color:#0C447C" onkeydown="handleDot(event,'${timeId}')"><span style="flex:1">${t.label}${t.requester?'<span style="font-size:10px;opacity:.6;margin-left:4px">（'+t.requester+'）</span>':''}</span>${t.cat&&t.cat!=='other'?`<span style="font-size:10px;background:${st.border}20;color:${st.text};border:0.5px solid ${st.border};border-radius:99px;padding:1px 7px;flex-shrink:0">${getCatObj(t.cat).label}</span>`:''} ${t.estimate?`<span style="font-size:10px;background:#B5D4F4;color:#0C447C;border-radius:99px;padding:1px 7px;flex-shrink:0">${t.estimate}</span>`:''} ${t.deadline?`<span style="font-size:10px;${isOver?'color:#E24B4A;font-weight:500':'opacity:.6'};flex-shrink:0">${t.deadline}</span>`:''}<button onclick="addTodoToTimeline(${realIdx},'${timeId}')" style="background:#fff;border:1px solid #85B7EB;border-radius:6px;padding:2px 8px;font-size:11px;color:#0C447C;cursor:pointer;flex-shrink:0">追加</button>`;tl.appendChild(row);});
+    let urgent=pendingTodos.filter(t=>!t.deadline||t.deadline<=_2wKey);
+    let mid=pendingTodos.filter(t=>t.deadline&&t.deadline>_2wKey&&t.deadline<=_1mKey);
+    let later=pendingTodos.filter(t=>t.deadline&&t.deadline>_1mKey);
+    let hdr2=document.createElement('div');
+    hdr2.style.cssText='font-size:11px;color:#0C447C;background:#E6F1FB;border:1px solid #85B7EB;border-radius:7px;padding:5px 10px;margin-bottom:6px;font-weight:500;display:flex;align-items:center;justify-content:space-between';
+    let foldParts=[];if(mid.length>0)foldParts.push('2週間以降'+mid.length+'件');if(later.length>0)foldParts.push('1ヶ月以降'+later.length+'件');
+    hdr2.innerHTML=`<span>TODOリスト</span><span style="font-weight:400;opacity:.7">${urgent.length}件表示${foldParts.length?' ＋ '+foldParts.join('・'):''}</span>`;
+    tl.appendChild(hdr2);
+    function _makeTodoRow(t){
+      let realIdx=todosArr.indexOf(t);let timeId='td_time_'+realIdx;
+      let isOver=t.deadline&&t.deadline<_today;
+      let isNear=t.deadline&&t.deadline>_today&&t.deadline<=getKey(new Date(Date.now()+7*86400000));
+      let st=t.cat?chipStyle(t.cat,false):{bg:'#E6F1FB',border:'#85B7EB',text:'#0C447C'};
+      let dlLabel=t.deadline?t.deadline.slice(5).replace('-','/'):null;
+      let dlChip=dlLabel?`<span style="font-size:10px;padding:1px 6px;border-radius:4px;flex-shrink:0;font-weight:500;${isOver?'background:#E24B4A;color:#fff':isNear?'background:#FAEEDA;color:#854F0B':'background:#ddd;color:#555'}">${isOver?'⚠ ':isNear?'⏰ ':''}${dlLabel}</span>`:'';
+      let row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:7px;padding:6px 10px;border-radius:8px;margin-bottom:4px;font-size:12px;background:#E6F1FB;border:1px solid #85B7EB;color:#0C447C';
+      row.innerHTML=`<input id="${timeId}" class="inbox-time-inp" type="time" value="${nowTimeStr()}" style="border-color:#85B7EB;color:#0C447C" onkeydown="handleDot(event,'${timeId}')"><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.label}${t.requester?'<span style="font-size:10px;opacity:.6;margin-left:4px">（'+t.requester+'）</span>':''}</span><span style="display:flex;gap:4px;align-items:center;flex-shrink:0">${t.cat&&t.cat!=='other'?`<span style="font-size:10px;background:${st.border}20;color:${st.text};border:0.5px solid ${st.border};border-radius:99px;padding:1px 6px">${getCatObj(t.cat).label}</span>`:''} ${dlChip} ${t.estimate?`<span style="font-size:10px;background:#B5D4F4;color:#0C447C;border-radius:99px;padding:1px 6px">${t.estimate}</span>`:''}</span><button onclick="addTodoToTimeline(${realIdx},'${timeId}')" style="background:#fff;border:1px solid #85B7EB;border-radius:6px;padding:2px 8px;font-size:11px;color:#0C447C;cursor:pointer;flex-shrink:0">追加</button>`;
+      return row;
+    }
+    function _makeFoldGroup(items,label){
+      let btn=document.createElement('button');
+      btn.style.cssText='font-size:11px;color:#0C447C;background:none;border:1px dashed #85B7EB;border-radius:6px;padding:4px 10px;cursor:pointer;width:100%;text-align:left;margin-bottom:4px';
+      btn.innerHTML=`▸ ${label}（${items.length}件）`;
+      let list=document.createElement('div');list.style.display='none';
+      items.forEach(t=>list.appendChild(_makeTodoRow(t)));
+      btn.onclick=()=>{let o=list.style.display==='none';list.style.display=o?'block':'none';btn.innerHTML=`${o?'▾':'▸'} ${label}（${items.length}件）`;};
+      let wrap=document.createElement('div');wrap.appendChild(btn);wrap.appendChild(list);return wrap;
+    }
+    urgent.forEach(t=>tl.appendChild(_makeTodoRow(t)));
+    if(mid.length>0)tl.appendChild(_makeFoldGroup(mid,'2週間〜1ヶ月のTODO'));
+    if(later.length>0)tl.appendChild(_makeFoldGroup(later,'1ヶ月以降のTODO'));
     tl.appendChild(Object.assign(document.createElement('div'),{className:'tl-sep'}));
   }
   sorted.forEach((task,i)=>{
