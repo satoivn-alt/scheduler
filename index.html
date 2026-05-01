@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>スケジューラー</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍊</text></svg>">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f3;color:#111;font-size:15px;line-height:1.6}
@@ -174,6 +173,18 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.5;cursor:pointer}
 .kform-row:last-child{margin-bottom:0}
 /* レッスンTODOバッジ */
 .todo-source-badge{font-size:10px;padding:1px 6px;border-radius:99px;border:0.5px solid #AFA9EC;background:#EEEDFE;color:#3C3489;white-space:nowrap;margin-left:4px}
+/* ルーティン */
+.routine-row{display:grid;grid-template-columns:1fr 110px 90px 80px 40px;gap:8px;align-items:center;padding:8px 10px;border-bottom:0.5px solid #eee;font-size:13px}
+.routine-row:last-child{border:none}
+.routine-hdr{display:grid;grid-template-columns:1fr 110px 90px 80px 40px;gap:8px;padding:4px 10px;font-size:11px;color:#999;border-bottom:1px solid #ddd}
+.routine-badge{font-size:10px;padding:2px 8px;border-radius:99px;white-space:nowrap}
+.routine-edit-form{background:#f5f5f3;border:1px solid #ddd;border-radius:10px;padding:12px 14px;margin-top:8px;display:none}
+/* TODO完了リスト折りたたみ */
+.todo-done-section{margin-top:10px}
+.todo-done-toggle{font-size:12px;color:#666;cursor:pointer;display:flex;align-items:center;gap:5px;padding:6px 0;border:none;background:none;width:100%;text-align:left}
+.todo-done-toggle:hover{color:#333}
+.todo-done-list{display:none;border-top:0.5px solid #eee;margin-top:4px;padding-top:4px}
+.todo-done-list.open{display:block}
 </style>
 </head>
 <body>
@@ -384,7 +395,110 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.5;cursor:pointer}
         <button class="btn" onclick="addTodo()">追加</button>
       </div>
     </div>
+    <div class="add-block" style="margin-top:10px;background:#E6F1FB;border-color:#85B7EB">
+      <div class="add-block-title" style="color:#0C447C">📋 JSONからTODOを一括インポート</div>
+      <textarea id="importJsonArea" placeholder='フローウィジェットの「JSONをコピー」ボタンで取得したJSONをここに貼り付けてください...' style="width:100%;font-size:12px;padding:8px 10px;border:1px solid #85B7EB;border-radius:8px;background:#fff;resize:vertical;min-height:80px;line-height:1.5;color:#111;font-family:monospace"></textarea>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
+        <button class="btn" style="background:#378ADD;border-color:#378ADD;color:#fff;font-size:13px" onclick="importFromJson()">インポート実行</button>
+        <button class="btn small" onclick="document.getElementById('importJsonArea').value=''">クリア</button>
+        <span id="importStatus" style="font-size:12px;color:#0C447C"></span>
+      </div>
+    </div>
   </div>
+
+  <!-- ルーティンセクション -->
+  <div class="section-full">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:15px;font-weight:500">🔁 ルーティンタスク</div>
+      <span style="font-size:12px;color:#666" id="routineCount">0件</span>
+    </div>
+    <div id="routineList" style="margin-bottom:12px;overflow-x:auto"></div>
+    <div class="add-block">
+      <div class="add-block-title">ルーティンを追加</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <input class="inp" type="text" id="rtLabel" placeholder="タスク名..." style="flex:1;min-width:120px">
+        <select class="inp" id="rtCat" style="font-size:13px;padding:7px 8px;width:110px"></select>
+        <input class="inp" type="time" id="rtStart" value="10:00" style="width:86px">
+        <input class="inp" type="time" id="rtEnd" value="10:30" style="width:86px">
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select class="inp" id="rtFreq" style="font-size:13px;padding:7px 8px;width:100px" onchange="toggleRtDow()">
+          <option value="daily">毎日</option>
+          <option value="weekly">毎週</option>
+          <option value="monthly">毎月</option>
+          <option value="yearly">毎年</option>
+        </select>
+        <div id="rtDowWrap" style="display:none;gap:4px;flex-wrap:wrap;align-items:center">
+          <span style="font-size:12px;color:#666">曜日:</span>
+          <label style="font-size:12px;color:#555;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="rtDow" value="0">日</label>
+          <label style="font-size:12px;color:#555;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="rtDow" value="1">月</label>
+          <label style="font-size:12px;color:#555;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="rtDow" value="2">火</label>
+          <label style="font-size:12px;color:#555;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="rtDow" value="3">水</label>
+          <label style="font-size:12px;color:#555;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="rtDow" value="4">木</label>
+          <label style="font-size:12px;color:#555;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="rtDow" value="5">金</label>
+          <label style="font-size:12px;color:#555;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="rtDow" value="6">土</label>
+        </div>
+        <div id="rtDayWrap" style="display:none;gap:6px;align-items:center">
+          <span style="font-size:12px;color:#666">日付:</span>
+          <input class="inp" type="number" id="rtDayNum" min="1" max="31" placeholder="日" style="width:60px;font-size:13px">
+          <span style="font-size:12px;color:#666">日</span>
+        </div>
+        <div id="rtMonthWrap" style="display:none;gap:6px;align-items:center">
+          <span style="font-size:12px;color:#666">日付:</span>
+          <input class="inp" type="number" id="rtMonth" min="1" max="12" placeholder="月" style="width:50px;font-size:13px">
+          <span style="font-size:12px;color:#666">月</span>
+          <input class="inp" type="number" id="rtYearDay" min="1" max="31" placeholder="日" style="width:50px;font-size:13px">
+          <span style="font-size:12px;color:#666">日</span>
+        </div>
+        <button class="btn" onclick="addRoutine()">追加</button>
+      </div>
+    </div>
+    <!-- 編集フォーム（hidden） -->
+    <div class="routine-edit-form" id="routineEditForm">
+      <div style="font-size:12px;font-weight:500;color:#666;margin-bottom:10px">ルーティンを編集</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <input class="inp" type="text" id="rtEditLabel" placeholder="タスク名..." style="flex:1;min-width:120px">
+        <select class="inp" id="rtEditCat" style="font-size:13px;padding:7px 8px;width:110px"></select>
+        <input class="inp" type="time" id="rtEditStart" style="width:86px">
+        <input class="inp" type="time" id="rtEditEnd" style="width:86px">
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <select class="inp" id="rtEditFreq" style="font-size:13px;padding:7px 8px;width:100px" onchange="toggleRtEditDow()">
+          <option value="daily">毎日</option>
+          <option value="weekly">毎週</option>
+          <option value="monthly">毎月</option>
+          <option value="yearly">毎年</option>
+        </select>
+        <div id="rtEditDowWrap" style="display:none;gap:4px;flex-wrap:wrap;align-items:center">
+          <span style="font-size:12px;color:#666">曜日:</span>
+          <label style="font-size:12px;color:#555;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="rtEditDow" value="0">日</label>
+          <label style="font-size:12px;color:#555;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="rtEditDow" value="1">月</label>
+          <label style="font-size:12px;color:#555;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="rtEditDow" value="2">火</label>
+          <label style="font-size:12px;color:#555;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="rtEditDow" value="3">水</label>
+          <label style="font-size:12px;color:#555;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="rtEditDow" value="4">木</label>
+          <label style="font-size:12px;color:#555;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="rtEditDow" value="5">金</label>
+          <label style="font-size:12px;color:#555;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="rtEditDow" value="6">土</label>
+        </div>
+        <div id="rtEditDayWrap" style="display:none;gap:6px;align-items:center">
+          <span style="font-size:12px;color:#666">日付:</span>
+          <input class="inp" type="number" id="rtEditDayNum" min="1" max="31" style="width:60px;font-size:13px">
+          <span style="font-size:12px;color:#666">日</span>
+        </div>
+        <div id="rtEditMonthWrap" style="display:none;gap:6px;align-items:center">
+          <span style="font-size:12px;color:#666">日付:</span>
+          <input class="inp" type="number" id="rtEditMonth" min="1" max="12" style="width:50px;font-size:13px">
+          <span style="font-size:12px;color:#666">月</span>
+          <input class="inp" type="number" id="rtEditYearDay" min="1" max="31" style="width:50px;font-size:13px">
+          <span style="font-size:12px;color:#666">日</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" style="background:#7F77DD;border-color:#7F77DD;color:#fff;font-size:12px" onclick="saveRoutineEdit()">保存</button>
+        <button class="btn small" onclick="cancelRoutineEdit()">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
   </div><!-- /#schedulerView -->
 
   <!-- カルテView -->
@@ -531,7 +645,7 @@ const db = firebase.database();
 const DAYS=['日','月','火','水','木','金','土'];
 let baseDate=new Date();baseDate.setHours(0,0,0,0);
 let offset=0,calOffset=0,wvOffset=0,selectedColor='#7F77DD';
-let allData={},todosArr=[],events=[];
+let allData={},todosArr=[],events=[],routines=[];
 let students=[], karteRecords=[];
 let searchActiveCat=null;
 let saveTimer=null;
@@ -583,6 +697,7 @@ function loadFromFirebase(){
       if(cats.length>0)categories=cats;
       students=fromFirebaseArray(data.students);
       karteRecords=fromFirebaseArray(data.karteRecords);
+      routines=fromFirebaseArray(data.routines);
     }
     isLoading=false;
     setSyncStatus('ok');
@@ -636,7 +751,8 @@ function buildPayload() {
     events: toFirebaseArray(events),
     categories: toFirebaseArray(categories),
     students: toFirebaseArray(students),
-    karteRecords: toFirebaseArray(karteRecords)
+    karteRecords: toFirebaseArray(karteRecords),
+    routines: toFirebaseArray(routines)
   };
 }
 
@@ -687,7 +803,15 @@ function calcWork(tasks){
 }
 function getWeekRange(d){let dow=d.getDay(),mon=new Date(d);mon.setDate(d.getDate()-((dow+6)%7));let sun=new Date(mon);sun.setDate(mon.getDate()+6);return{mon,sun};}
 function getMissedFromPrev(){let prev=new Date(baseDate);prev.setDate(prev.getDate()+offset-1);let k=getKey(prev);if(!allData[k])return[];return allData[k].tasks.filter(t=>!t.isBreak&&!t.done);}
-function eventsForDay(dateKey){return events.filter(e=>e.date===dateKey);}
+function eventsForDay(dateKey){
+  return events.filter(e=>e.date===dateKey).sort((a,b)=>{
+    // 終日は先頭、時刻ありは時刻順
+    if(a.allDay&&!b.allDay) return -1;
+    if(!a.allDay&&b.allDay) return 1;
+    if(!a.allDay&&!b.allDay) return (a.start||'').localeCompare(b.start||'');
+    return 0;
+  });
+}
 function toggleEvTime(){let chk=document.getElementById('evAllDay').checked;document.getElementById('evTimeRow').style.display=chk?'none':'flex';}
 
 function renderWeekView(){
@@ -841,7 +965,7 @@ function render(){
   let doneTasks=tasks.filter(t=>!t.isBreak&&t.done),missedTasks=tasks.filter(t=>!t.isBreak&&!t.done);
   document.getElementById('doneList').innerHTML=doneTasks.length===0?'<div style="font-size:12px;color:#999">まだ完了したタスクはありません</div>':doneTasks.map(t=>`<div class="task-line done-line"><span style="font-size:11px;color:#999;min-width:44px">${t.start}</span>${t.label}</div>`).join('');
   document.getElementById('missedList').innerHTML=missedTasks.length===0?'<div style="font-size:12px;color:#999">全タスク完了！</div>':missedTasks.map(t=>`<div class="task-line"><span style="font-size:11px;color:#999;min-width:44px">${t.start}</span>${t.label}</div>`).join('');
-  renderTodos();renderCalendar();renderCatManager();renderWeekView();renderDayEvents();runSearch();
+  renderTodos();renderCalendar();renderCatManager();renderWeekView();renderDayEvents();runSearch();renderRoutines();applyRoutinesToDay();
 }
 
 window.addPrevToTimeline=(pi,timeId)=>{snapshot();let prevMissed=getMissedFromPrev();let t=prevMissed[pi];if(!t)return;let start=document.getElementById(timeId)?document.getElementById(timeId).value||t.start:t.start;getDayData().tasks.push({start,end:'',label:t.label,cat:t.cat,done:false,isBreak:false});let prev=new Date(baseDate);prev.setDate(prev.getDate()+offset-1);let k=getKey(prev);if(allData[k]){let idx=allData[k].tasks.findIndex(x=>!x.isBreak&&!x.done&&x.start===t.start&&x.label===t.label);if(idx>-1)allData[k].tasks.splice(idx,1);}render();};
@@ -857,7 +981,119 @@ window.addTodoToTimeline=(realIdx,timeId)=>{
   render();
 };
 window.handleDotEnd=(e,si,elId)=>{if((e.ctrlKey||e.metaKey)&&e.key==='.'){e.preventDefault();let val=nowTimeStr();document.getElementById(elId).value=val;updateEnd(si,val);}};
-window.updateEnd=(si,val)=>{snapshot();let{tasks}=getDayData();let sorted=[...tasks].sort((a,b)=>toMin(a.start)-toMin(b.start));let orig=tasks.find(t=>t.start===sorted[si].start&&t.label===sorted[si].label);if(orig)orig.end=val;render();};
+window.updateEnd=(si,val)=>{snapshot();let{tasks}=getDayData();let sorted2=[...tasks].sort((a,b)=>toMin(a.start)-toMin(b.start));let t=sorted2[si];if(!t)return;let orig=tasks.find(x=>x.start===t.start&&x.label===t.label&&x.cat===t.cat);if(orig)orig.end=val;render();};
+
+// ===== ルーティン機能 =====
+let routineEditIdx=-1;
+const FREQ_LABEL={daily:'毎日',weekly:'毎週',monthly:'毎月',yearly:'毎年'};
+const DOW_NAMES=['日','月','火','水','木','金','土'];
+
+function routineMatchesToday(rt, d){
+  const dow=d.getDay(),day=d.getDate(),month=d.getMonth()+1;
+  if(rt.freq==='daily') return true;
+  if(rt.freq==='weekly') return (rt.dows||[]).includes(dow);
+  if(rt.freq==='monthly') return (rt.monthDay||1)===day;
+  if(rt.freq==='yearly') return (rt.yearMonth||1)===month&&(rt.yearDay||1)===day;
+  return false;
+}
+
+function applyRoutinesToDay(){
+  const d=getDate();const k=getKey(d);
+  if(!allData[k])allData[k]={tasks:JSON.parse(JSON.stringify(DEFAULT_TASKS)),memo:'',good:'',next:''};
+  const existing=allData[k].tasks;
+  let added=0;
+  routines.forEach(rt=>{
+    if(!routineMatchesToday(rt,d))return;
+    // 同じルーティンIDが既にある日は追加しない
+    if(existing.some(t=>t.routineId===rt.id))return;
+    existing.push({start:rt.start,end:rt.end,label:rt.label,cat:rt.cat,done:false,isBreak:false,routineId:rt.id});
+    added++;
+  });
+  if(added>0){snapshot();}
+}
+
+function renderRoutines(){
+  const list=document.getElementById('routineList');
+  document.getElementById('routineCount').textContent=routines.length+'件';
+  // sync selects
+  ['rtCat','rtEditCat'].forEach(id=>{const sel=document.getElementById(id);if(!sel)return;const prev=sel.value;sel.innerHTML=categories.map(c=>`<option value="${c.id}">${c.label}</option>`).join('');if(categories.find(c=>c.id===prev))sel.value=prev;});
+  if(routines.length===0){list.innerHTML='<div style="font-size:13px;color:#999;padding:8px 0">ルーティンはまだありません</div>';return;}
+  list.innerHTML='';
+  const hdr=document.createElement('div');hdr.className='routine-hdr';hdr.innerHTML='<span>タスク名</span><span>繰り返し</span><span>時間</span><span>カテゴリ</span><span></span>';list.appendChild(hdr);
+  routines.forEach((rt,i)=>{
+    const catObj=getCatObj(rt.cat||'other');const bg=PALETTE_BG[catObj.color]||'#F1EFE8';
+    let freqText=FREQ_LABEL[rt.freq]||rt.freq;
+    if(rt.freq==='weekly'&&rt.dows&&rt.dows.length>0) freqText+=' ('+rt.dows.map(d=>DOW_NAMES[d]).join('・')+')';
+    if(rt.freq==='monthly') freqText+=' '+( rt.monthDay||1)+'日';
+    if(rt.freq==='yearly') freqText+=' '+(rt.yearMonth||1)+'/'+(rt.yearDay||1);
+    const row=document.createElement('div');row.className='routine-row';
+    row.innerHTML=`<span style="font-weight:500">${rt.label}</span><span><span class="routine-badge" style="background:#E1F5EE;color:#085041;border:0.5px solid #5DCAA5">${freqText}</span></span><span style="color:#666;font-size:12px">${rt.start}〜${rt.end}</span><span><span style="font-size:11px;padding:2px 8px;border-radius:99px;background:${bg};color:${catObj.color};border:0.5px solid ${catObj.color};white-space:nowrap">${catObj.label}</span></span><span style="display:flex;gap:4px"><button onclick="editRoutine(${i})" style="background:none;border:1px solid #ccc;border-radius:5px;cursor:pointer;font-size:11px;padding:2px 7px;color:#555">編集</button><button onclick="removeRoutine(${i})" style="background:none;border:none;cursor:pointer;color:#999;font-size:15px;padding:0">×</button></span>`;
+    list.appendChild(row);
+  });
+}
+
+window.toggleRtDow=()=>{
+  const freq=document.getElementById('rtFreq').value;
+  document.getElementById('rtDowWrap').style.display=freq==='weekly'?'flex':'none';
+  document.getElementById('rtDayWrap').style.display=freq==='monthly'?'flex':'none';
+  document.getElementById('rtMonthWrap').style.display=freq==='yearly'?'flex':'none';
+};
+window.toggleRtEditDow=()=>{
+  const freq=document.getElementById('rtEditFreq').value;
+  document.getElementById('rtEditDowWrap').style.display=freq==='weekly'?'flex':'none';
+  document.getElementById('rtEditDayWrap').style.display=freq==='monthly'?'flex':'none';
+  document.getElementById('rtEditMonthWrap').style.display=freq==='yearly'?'flex':'none';
+};
+
+window.addRoutine=()=>{
+  const label=document.getElementById('rtLabel').value.trim();
+  if(!label)return;
+  const freq=document.getElementById('rtFreq').value;
+  const rt={id:'rt_'+Date.now(),label,cat:document.getElementById('rtCat').value,start:document.getElementById('rtStart').value,end:document.getElementById('rtEnd').value,freq};
+  if(freq==='weekly') rt.dows=[...document.querySelectorAll('.rtDow:checked')].map(c=>parseInt(c.value));
+  if(freq==='monthly') rt.monthDay=parseInt(document.getElementById('rtDayNum').value)||1;
+  if(freq==='yearly'){rt.yearMonth=parseInt(document.getElementById('rtMonth').value)||1;rt.yearDay=parseInt(document.getElementById('rtYearDay').value)||1;}
+  routines.push(rt);
+  document.getElementById('rtLabel').value='';
+  scheduleSave();
+  renderRoutines();
+  applyRoutinesToDay();
+  render();
+};
+
+window.editRoutine=(i)=>{
+  routineEditIdx=i;
+  const rt=routines[i];
+  const form=document.getElementById('routineEditForm');form.style.display='block';
+  document.getElementById('rtEditLabel').value=rt.label;
+  document.getElementById('rtEditStart').value=rt.start;
+  document.getElementById('rtEditEnd').value=rt.end;
+  document.getElementById('rtEditFreq').value=rt.freq;
+  toggleRtEditDow();
+  if(rt.freq==='weekly'){document.querySelectorAll('.rtEditDow').forEach(c=>{c.checked=(rt.dows||[]).includes(parseInt(c.value));});}
+  if(rt.freq==='monthly'){document.getElementById('rtEditDayNum').value=rt.monthDay||1;}
+  if(rt.freq==='yearly'){document.getElementById('rtEditMonth').value=rt.yearMonth||1;document.getElementById('rtEditYearDay').value=rt.yearDay||1;}
+  // sync cat select
+  const sel=document.getElementById('rtEditCat');sel.innerHTML=categories.map(c=>`<option value="${c.id}">${c.label}</option>`).join('');sel.value=rt.cat;
+  form.scrollIntoView({behavior:'smooth',block:'nearest'});
+};
+window.saveRoutineEdit=()=>{
+  if(routineEditIdx<0)return;
+  const rt=routines[routineEditIdx];
+  rt.label=document.getElementById('rtEditLabel').value.trim()||rt.label;
+  rt.cat=document.getElementById('rtEditCat').value;
+  rt.start=document.getElementById('rtEditStart').value;
+  rt.end=document.getElementById('rtEditEnd').value;
+  rt.freq=document.getElementById('rtEditFreq').value;
+  if(rt.freq==='weekly') rt.dows=[...document.querySelectorAll('.rtEditDow:checked')].map(c=>parseInt(c.value));
+  if(rt.freq==='monthly') rt.monthDay=parseInt(document.getElementById('rtEditDayNum').value)||1;
+  if(rt.freq==='yearly'){rt.yearMonth=parseInt(document.getElementById('rtEditMonth').value)||1;rt.yearDay=parseInt(document.getElementById('rtEditYearDay').value)||1;}
+  routineEditIdx=-1;
+  document.getElementById('routineEditForm').style.display='none';
+  scheduleSave();renderRoutines();applyRoutinesToDay();render();
+};
+window.cancelRoutineEdit=()=>{routineEditIdx=-1;document.getElementById('routineEditForm').style.display='none';};
+window.removeRoutine=(i)=>{if(!confirm('このルーティンを削除しますか？'))return;routines.splice(i,1);scheduleSave();renderRoutines();render();};
 window.toggleTask=(si)=>{
   snapshot();
   let{tasks}=getDayData();
@@ -897,20 +1133,58 @@ document.addEventListener('change',e=>{
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='z'){let tag=document.activeElement.tagName.toLowerCase();if(tag==='textarea'||tag==='input')return;e.preventDefault();undo();}});
 
 function renderTodos(){
-  let list=document.getElementById('todoList');document.getElementById('todoCount').textContent=todosArr.length+'件';
+  let list=document.getElementById('todoList');
+  let active=todosArr.filter(t=>!t.done);
+  let done=todosArr.filter(t=>t.done);
+  document.getElementById('todoCount').textContent=active.length+'件（完了'+done.length+'件）';
   if(todosArr.length===0){list.innerHTML='<div style="font-size:13px;color:#999;padding:8px 0">TODOはまだありません</div>';return;}
-  // 期限でソート：期限あり（近い順）→期限なし
-  let sorted=[...todosArr.map((t,i)=>({...t,_orig:i}))].sort((a,b)=>{
+  let sorted=[...active.map((t,_)=>({...t,_orig:todosArr.indexOf(t)}))].sort((a,b)=>{
     if(a.deadline&&b.deadline) return a.deadline.localeCompare(b.deadline);
     if(a.deadline&&!b.deadline) return -1;
     if(!a.deadline&&b.deadline) return 1;
     return 0;
   });
-  list.innerHTML='';let hdr=document.createElement('div');hdr.className='todo-hdr';hdr.innerHTML='<span>内容</span><span>カテゴリ</span><span>依頼者</span><span>期限</span><span>予想時間</span><span></span>';list.appendChild(hdr);
-  sorted.forEach((t)=>{let i=t._orig;let row=document.createElement('div');row.className='todo-row';let today=getKey(new Date());let isOver=t.deadline&&t.deadline<today&&!t.done;row.style.cssText=t.done?'opacity:.45;text-decoration:line-through':'';let catObj=getCatObj(t.cat||'other');let bg=PALETTE_BG[catObj.color]||'#F1EFE8';row.innerHTML=`<span style="cursor:pointer" onclick="toggleTodo(${i})">${t.label}</span><span><span style="font-size:11px;padding:2px 8px;border-radius:99px;background:${bg};color:${catObj.color};border:0.5px solid ${catObj.color};white-space:nowrap">${catObj.label}</span></span><span style="color:#666">${t.requester||'—'}</span><span style="color:${isOver?'#E24B4A':'#666'};font-weight:${isOver?500:400}">${t.deadline?'〜'+t.deadline:'—'}</span><span style="color:#666">${t.estimate||'—'}</span><button onclick="removeTodo(${i})" style="background:none;border:none;cursor:pointer;color:#999;font-size:15px;padding:0">×</button>`;list.appendChild(row);});
+  list.innerHTML='';
+  if(sorted.length===0){list.innerHTML='<div style="font-size:13px;color:#999;padding:8px 0">未完了のTODOはありません 🎉</div>';}
+  else{
+    let hdr=document.createElement('div');hdr.className='todo-hdr';hdr.innerHTML='<span>内容</span><span>カテゴリ</span><span>依頼者</span><span>期限</span><span>予想時間</span><span></span>';list.appendChild(hdr);
+    sorted.forEach((t)=>{let i=t._orig;let row=document.createElement('div');row.className='todo-row';let today=getKey(new Date());let isOver=t.deadline&&t.deadline<today;let catObj=getCatObj(t.cat||'other');let bg=PALETTE_BG[catObj.color]||'#F1EFE8';row.innerHTML=`<span style="cursor:pointer;display:flex;align-items:center;gap:6px"><span style="font-size:15px;cursor:pointer;color:#1D9E75" onclick="toggleTodo(${i})" title="完了にする">○</span>${t.label}${t.lessonTodoId?`<span class="todo-source-badge">レッスンTODO</span>`:''}</span><span><span style="font-size:11px;padding:2px 8px;border-radius:99px;background:${bg};color:${catObj.color};border:0.5px solid ${catObj.color};white-space:nowrap">${catObj.label}</span></span><span style="color:#666">${t.requester||'—'}</span><span style="color:${isOver?'#E24B4A':'#666'};font-weight:${isOver?500:400}">${t.deadline?'〜'+t.deadline:'—'}</span><span style="color:#666">${t.estimate||'—'}</span><button onclick="removeTodo(${i})" style="background:none;border:none;cursor:pointer;color:#999;font-size:15px;padding:0">×</button>`;list.appendChild(row);});
+  }
+  // 完了済み折りたたみ
+  if(done.length>0){
+    let sec=document.createElement('div');sec.className='todo-done-section';
+    let toggle=document.createElement('button');toggle.className='todo-done-toggle';
+    const isOpen=list.dataset.doneOpen==='1';
+    toggle.innerHTML=`<span style="font-size:13px">${isOpen?'▾':'▸'}</span> 完了済み ${done.length}件`;
+    let doneList=document.createElement('div');doneList.className='todo-done-list'+(isOpen?' open':'');
+    let doneHdr=document.createElement('div');doneHdr.className='todo-hdr';doneHdr.innerHTML='<span>内容</span><span>カテゴリ</span><span>依頼者</span><span>期限</span><span>予想時間</span><span></span>';doneList.appendChild(doneHdr);
+    done.forEach(t=>{let i=todosArr.indexOf(t);let catObj=getCatObj(t.cat||'other');let bg=PALETTE_BG[catObj.color]||'#F1EFE8';let row=document.createElement('div');row.className='todo-row';row.style.cssText='opacity:.5;text-decoration:line-through';row.innerHTML=`<span style="cursor:pointer;display:flex;align-items:center;gap:6px"><span style="font-size:15px;color:#1D9E75;cursor:pointer" onclick="toggleTodo(${i})" title="未完了に戻す">✓</span>${t.label}</span><span><span style="font-size:11px;padding:2px 8px;border-radius:99px;background:${bg};color:${catObj.color};border:0.5px solid ${catObj.color};white-space:nowrap">${catObj.label}</span></span><span style="color:#666">${t.requester||'—'}</span><span style="color:#666">${t.deadline?'〜'+t.deadline:'—'}</span><span style="color:#666">${t.estimate||'—'}</span><button onclick="removeTodo(${i})" style="background:none;border:none;cursor:pointer;color:#999;font-size:15px;padding:0">×</button>`;doneList.appendChild(row);});
+    toggle.onclick=()=>{let open=doneList.classList.toggle('open');toggle.innerHTML=`<span style="font-size:13px">${open?'▾':'▸'}</span> 完了済み ${done.length}件`;list.dataset.doneOpen=open?'1':'0';};
+    sec.appendChild(toggle);sec.appendChild(doneList);list.appendChild(sec);
+  }
   setTimeout(()=>{if(typeof patchTodoListWithKarteBadge==='function')patchTodoListWithKarteBadge();},0);
 }
 window.addTodo=()=>{let label=document.getElementById('todoLabel').value.trim();if(!label)return;snapshot();todosArr.push({label,cat:document.getElementById('todoCat').value,requester:document.getElementById('todoRequester').value.trim(),deadline:document.getElementById('todoDeadline').value,estimate:document.getElementById('todoEstimate').value.trim(),done:false});['todoLabel','todoRequester','todoDeadline','todoEstimate'].forEach(id=>document.getElementById(id).value='');renderTodos();render();};
+window.importFromJson=()=>{
+  const raw=document.getElementById('importJsonArea').value.trim();
+  const statusEl=document.getElementById('importStatus');
+  if(!raw){statusEl.textContent='JSONを貼り付けてください';return;}
+  let items;try{items=JSON.parse(raw);}catch(e){statusEl.style.color='#E24B4A';statusEl.textContent='JSONの形式が正しくありません';return;}
+  if(!Array.isArray(items)){statusEl.style.color='#E24B4A';statusEl.textContent='配列形式のJSONが必要です';return;}
+  const catMap={};categories.forEach(c=>{catMap[c.label]=c.id;catMap[c.id]=c.id;});
+  const added=[];const skipped=[];
+  items.forEach(item=>{
+    if(!item.label){skipped.push(item);return;}
+    if(todosArr.some(t=>t.label===item.label)){skipped.push(item);return;}
+    const resolvedCat=catMap[item.cat]||catMap[item.category]||categories[0]?.id||'other';
+    todosArr.push({label:item.label,cat:resolvedCat,requester:item.requester||'',deadline:item.deadline||'',estimate:item.estimate||'',done:false});
+    added.push(item.label);
+  });
+  if(added.length===0){statusEl.style.color='#BA7517';statusEl.textContent=`追加なし（重複 ${skipped.length}件）`;return;}
+  snapshot();renderTodos();render();
+  statusEl.style.color='#085041';statusEl.textContent=`✓ ${added.length}件追加${skipped.length>0?' (重複スキップ'+skipped.length+'件)':''}`;
+  setTimeout(()=>{document.getElementById('importJsonArea').value='';statusEl.textContent='';},3000);
+};
 window.toggleTodo=(i)=>{snapshot();todosArr[i].done=!todosArr[i].done;renderTodos();render();};
 window.removeTodo=(i)=>{snapshot();todosArr.splice(i,1);renderTodos();render();};
 document.getElementById('todoLabel').addEventListener('keydown',e=>{if(e.key==='Enter')window.addTodo();});
